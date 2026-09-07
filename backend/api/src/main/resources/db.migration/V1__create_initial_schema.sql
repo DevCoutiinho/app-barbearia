@@ -27,11 +27,9 @@ CREATE TABLE permission
 
 CREATE TABLE user_role
 (
+    PRIMARY KEY (user_id, role_id),
     user_id     UUID NOT NULL,
     role_id     UUID NOT NULL,
-
-    CONSTRAINT fk_user_role
-        PRIMARY KEY (user_id, role_id),
 
     CONSTRAINT fk_user_role_user
         FOREIGN KEY (user_id)
@@ -46,11 +44,9 @@ CREATE TABLE user_role
 
 CREATE TABLE role_permission
 (
+    PRIMARY KEY (role_id, permission_id),
     permission_id   UUID NOT NULL,
     role_id         UUID NOT NULL,
-
-    CONSTRAINT fk_role_permission
-        PRIMARY KEY (role_id, permission_id),
 
     CONSTRAINT fk_role_permission_role
         FOREIGN KEY (role_id)
@@ -69,9 +65,9 @@ CREATE TABLE notification
     user_id             UUID NOT NULL,
     title               VARCHAR(50) NOT NULL,
     message             VARCHAR(255) NOT NULL,
-    type                VARCHAR(50) NOT NULL CHECK(name IN('NEW_APPOINTMENT', 'APPOINTMENT_CANCELED', 'APPOINTMENT_REMINDER', 'LOW_STOCK', 'SYSTEM')),
+    type                VARCHAR(50) NOT NULL CHECK(type IN('NEW_APPOINTMENT', 'APPOINTMENT_CANCELED', 'APPOINTMENT_REMINDER', 'LOW_STOCK', 'SYSTEM')),
     read                BOOLEAN NOT NULL,
-    created_at          DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at          TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
     CONSTRAINT fk_user_notification
         FOREIGN KEY (user_id)
@@ -84,11 +80,11 @@ CREATE TABLE service
     id              UUID PRIMARY KEY,
     barber_id       UUID NOT NULL,
     name            VARCHAR(255) NOT NULL,
-    type_haircut    VARCHAR(50) NOT NULL CHECK(name IN('HAIR_CLIPPERS', 'SCISSORS', 'MIXED')),
+    type_haircut    VARCHAR(50) NOT NULL CHECK(type_haircut IN('HAIR_CLIPPERS', 'SCISSORS', 'MIXED')),
     price           NUMERIC(10,2) NOT NULL,
     active          BOOLEAN NOT NULL,
-    created_at      DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at      DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
     time_service    INT NOT NULL,
 
     CONSTRAINT fk_service_user
@@ -104,9 +100,9 @@ CREATE TABLE scheduling
     client_id       UUID NOT NULL,
     service_id      UUID NOT NULL,
     data_time       TIMESTAMPTZ NOT NULL,
-    created_at      DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at      DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    status          VARCHAR(50) NOT NULL CHECK(name IN('APPOINTMENT_CANCELED', 'APOINTMENT_SCHEDULED', 'SCHEDULED','PENDING_CONFIRMATION')),
+    created_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    status          VARCHAR(50) NOT NULL CHECK(status IN('APPOINTMENT_CANCELED', 'APOINTMENT_SCHEDULED', 'SCHEDULED','PENDING_CONFIRMATION')),
     final_price     NUMERIC(10,2) NOT NULL,
 
     CONSTRAINT fk_scheduling_barber
@@ -128,7 +124,7 @@ CREATE TABLE scheduling
 CREATE TABLE barber_availability
 (
     id                  UUID PRIMARY KEY,
-    barber_id           UUDI NOT NULL,
+    barber_id           UUDI,
     day_week            INT NOT NULL,
     start_time          TIME NOT NULL,
     end_time            TIME NOT NULL,
@@ -149,9 +145,10 @@ CREATE TABLE product
     description         VARCHAR(255),
     minimum_quantity    NUMERIC(10,2) NOT NULL,
     current_quantity    NUMERIC(10,2) NOT NULL,
-    unit_measurement    VARCHAR(50) NOT NULL CHECK(name IN('UN', 'G', 'ML', 'L')),
+    unit_measurement    VARCHAR(50) NOT NULL CHECK(unit_measurement IN('UN', 'G', 'ML', 'L')),
     price_cost          NUMERIC(10,2) NOT NULL,
-    updated_at          DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at          TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at          TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
     active              BOOLEAN NOT NULL
 );
 
@@ -161,8 +158,8 @@ CREATE TABLE inventory_movement
     user_id             UUID NOT NULL,
     product_id          UUID NOT NULL,
     quantity            NUMERIC(10,2) NOT NULL,
-    created_at          DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    type                VARCHAR(50) NOT NULL CHECK(name IN('CONSUMPTION', 'ENTRY', 'DISPOSAL')),
+    created_at          TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    type                VARCHAR(50) NOT NULL CHECK(type IN('CONSUMPTION', 'ENTRY', 'DISPOSAL')),
 
     CONSTRAINT fk_inventory_movement_user
         FOREIGN KEY (user_id)
