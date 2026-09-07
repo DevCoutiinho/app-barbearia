@@ -1,25 +1,26 @@
 CREATE TABLE user
 (
-    user_id     UUID PRIMARY KEY,
+    id          UUID PRIMARY KEY,
     name        VARCHAR(100) NOT NULL,
     avatar      VARCHAR(255) NOT NULL,
     email       VARCHAR(255) NOT NULL UNIQUE,
     password    VARCHAR(255) NOT NULL,
     telephone   VARCHAR(11) NOT NULL,
-    created_on  TIMESTAMPTZ NOT NULL,
-    updated_on  TIMESTAMPTZ NOT NULL
+    created_at  DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at  DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    active      BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE role
 (
-    role_id     UUID PRIMARY KEY,
+    id          UUID PRIMARY KEY,
     name        VARCHAR(50) NOT NULL UNIQUE CHECK(name IN('USER', 'ADMIN', 'BARBER')),
     description VARCHAR(255)
 );
 
 CREATE TABLE permission
 (
-    permission_id   UUID PRIMARY KEY,
+    id              UUID PRIMARY KEY,
     name            VARCHAR(50) NOT NULL UNIQUE,
     description     VARCHAR(255)
 );
@@ -29,14 +30,17 @@ CREATE TABLE user_role
     user_id     UUID NOT NULL,
     role_id     UUID NOT NULL,
 
+    CONSTRAINT fk_user_role
+        PRIMARY KEY (user_id, role_id),
+
     CONSTRAINT fk_user_role_user
         FOREIGN KEY (user_id)
-            REFERENCES user (user_id)
+            REFERENCES user (id)
             ON DELETE CASCADE,
 
     CONSTRAINT fk_user_role_role
         FOREIGN KEY (role_id)
-            REFERENCES role (role_id)
+            REFERENCES role (id)
             ON DELETE CASCADE
 );
 
@@ -45,121 +49,128 @@ CREATE TABLE role_permission
     permission_id   UUID NOT NULL,
     role_id         UUID NOT NULL,
 
+    CONSTRAINT fk_role_permission
+        PRIMARY KEY (role_id, permission_id),
+
     CONSTRAINT fk_role_permission_role
         FOREIGN KEY (role_id)
-            REFERENCES role (role_id)
+            REFERENCES role (id)
             ON DELETE CASCADE,
 
     CONSTRAINT fk_role_permission_permission
         FOREIGN KEY (permission_id)
-            REFERENCES permission (permission_id)
+            REFERENCES permission (id)
             ON DELETE CASCADE
 );
 
 CREATE TABLE notification
 (
-    notification_id     UUID PRIMARY KEY,
+    id                  UUID PRIMARY KEY,
     user_id             UUID NOT NULL,
     title               VARCHAR(50) NOT NULL,
-    message            VARCHAR(255) NOT NULL,
-    type                ENUM('agendamento_novo', 'agendamento_cancelado', 'agendamento_lembrete', 'estoque_baixo', 'sistema'),
+    message             VARCHAR(255) NOT NULL,
+    type                VARCHAR(50) NOT NULL CHECK(name IN('NEW_APPOINTMENT', 'APPOINTMENT_CANCELED', 'APPOINTMENT_REMINDER', 'LOW_STOCK', 'SYSTEM')),
     read                BOOLEAN NOT NULL,
-    created_on          TIMESTAMPTZ NOT NULL,
+    created_at          DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
     CONSTRAINT fk_user_notification
         FOREIGN KEY (user_id)
-            REFERENCES permission (permission_id)
+            REFERENCES user (id)
             ON DELETE CASCADE
 );
 
 CREATE TABLE service
 (
-    service_id      UUID PRIMARY KEY,
+    id              UUID PRIMARY KEY,
     barber_id       UUID NOT NULL,
-    description     VARCHAR(255) NOT NULL,
+    name            VARCHAR(255) NOT NULL,
+    type_haircut    VARCHAR(50) NOT NULL CHECK(name IN('HAIR_CLIPPERS', 'SCISSORS', 'MIXED')),
     price           NUMERIC(10,2) NOT NULL,
     active          BOOLEAN NOT NULL,
-    updated_on      TIMESTAMPTZ NOT NULL,
-    created_on      TIMESTAMPTZ NOT NULL,
+    created_at      DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at      DEFAULT CURRENT_TIMESTAMP NOT NULL,
     time_service    INT NOT NULL,
 
     CONSTRAINT fk_service_user
         FOREIGN KEY (barber_id)
-            REFERENCES user (user_id)
+            REFERENCES user (id)
             ON DELETE RESTRICT
 );
 
 CREATE TABLE scheduling
 (
-    scheduling_id   UUID PRIMARY KEY,
+    id              UUID PRIMARY KEY,
     barber_id       UUID NOT NULL,
     client_id       UUID NOT NULL,
     service_id      UUID NOT NULL,
     data_time       TIMESTAMPTZ NOT NULL,
-    created_on      TIMESTAMPTZ NOT NULL,
-    updated_on      TIMESTAMPTZ NOT NULL,
-    status          ENUM('Agendamento_cancelado', 'Agendameto_concluido', 'Agendado','Pendente_confirmacao'),
+    created_at      DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at      DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    status          VARCHAR(50) NOT NULL CHECK(name IN('APPOINTMENT_CANCELED', 'APOINTMENT_SCHEDULED', 'SCHEDULED','PENDING_CONFIRMATION')),
     final_price     NUMERIC(10,2) NOT NULL,
 
     CONSTRAINT fk_scheduling_barber
         FOREIGN KEY (barber_id)
-            REFERENCES user (user_id)
+            REFERENCES user (id)
             ON DELETE RESTRICT,
 
     CONSTRAINT fk_scheduling_client
         FOREIGN KEY (client_id)
-            REFERENCES user (user_id)
+            REFERENCES user (id)
             ON DELETE RESTRICT,
 
-    CONSTRAINT fk_scheduling_barber
+    CONSTRAINT fk_scheduling_service
         FOREIGN KEY (service_id)
-            REFERENCES service (servce_id)
+            REFERENCES service (id)
             ON DELETE RESTRICT
 );
 
 CREATE TABLE barber_availability
 (
-    availability_id     UUID PRIMARY KEY,
+    id                  UUID PRIMARY KEY,
     barber_id           UUDI NOT NULL,
     day_week            INT NOT NULL,
     start_time          TIME NOT NULL,
     end_time            TIME NOT NULL,
     active              BOOEAN NOT NULL,
-    start_pause         TIMESTAMPTZ NOT NULL,
-    end_pause           TIMESTAMPTZ NOT NULL,
+    start_pause         TIME NOT NULL,
+    end_pause           TIME NOT NULL,
 
     CONSTRAINT fk_availability_barber
         FOREIGN KEY (barber_id)
-            REFERENCES user (user_id)
+            REFERENCES user (id)
             ON DELETE CASCADE
 );
 
 CREATE TABLE product
 (
-    product_id          UUID PRIMARY KEY,
+    id                  UUID PRIMARY KEY,
     name                VARCHAR(100) NOT NULL,
     description         VARCHAR(255),
-    minimum_quantity    INT NOT NULL,
-    current_quantity    INT NOT NULL,
+    minimum_quantity    NUMERIC(10,2) NOT NULL,
+    current_quantity    NUMERIC(10,2) NOT NULL,
+    unit_measurement    VARCHAR(50) NOT NULL CHECK(name IN('UN', 'G', 'ML', 'L')),
     price_cost          NUMERIC(10,2) NOT NULL,
-    updated_on          TIMESTAMPTZ NOT NUL
+    updated_at          DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    active              BOOLEAN NOT NULL
 );
 
 CREATE TABLE inventory_movement
 (
-    inventory_movement  UUID PRIMARY KEY,
+    id                  UUID PRIMARY KEY,
     user_id             UUID NOT NULL,
     product_id          UUID NOT NULL,
-    quantity            INT NOT NULL,
-    created_on          TIMESTAMPTZ NOT NULL,
+    quantity            NUMERIC(10,2) NOT NULL,
+    created_at          DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    type                VARCHAR(50) NOT NULL CHECK(name IN('CONSUMPTION', 'ENTRY', 'DISPOSAL')),
 
     CONSTRAINT fk_inventory_movement_user
         FOREIGN KEY (user_id)
-            REFERENCES user (user_id)
+            REFERENCES user (id)
             ON DELETE RESTRICT,
 
     CONSTRAINT fk_inventory_movement_product
         FOREIGN KEY (product_id)
-            REFERENCES product (product_id)
+            REFERENCES product (id)
             ON DELETE RESTRICT
 );
