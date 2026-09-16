@@ -47,13 +47,15 @@ public class User extends Auditable {
     @Column(unique = true, nullable = false)
     private String email;
 
+    @Setter
     @Column(nullable = false)
-    private String password;
+    private @NonNull String password;
 
-    @Column(nullable = false, length = 11)
+    @Column(length = 11)
     private String telephone;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean active = Boolean.TRUE;
 
     @OneToMany(mappedBy = "user")
@@ -88,4 +90,10 @@ public class User extends Auditable {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Notification> notifications = new ArrayList<>();
+
+    public void addRole(Role role) {
+        Objects.requireNonNull(role);
+        roles.add(role);
+        role.addUser(this);
+    }
 }

@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -25,7 +26,7 @@ public class Role {
     private UUID id;
 
     @Enumerated(EnumType.STRING)
-    @Column(unique = true,nullable = false,length = 50)
+    @Column(unique = true, nullable = false, length = 50)
     private RoleName name;
 
     private String description;
@@ -43,5 +44,8 @@ public class Role {
     @Builder.Default
     private Set<Permission> permissions = new HashSet<>();
 
-
+    public void addUser(User user) {
+        Objects.requireNonNull(user);
+        users.add(user);
+    }
 }
