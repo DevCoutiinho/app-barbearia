@@ -5,7 +5,7 @@ CREATE TABLE users
     avatar     VARCHAR(255),
     email      VARCHAR(255) NOT NULL UNIQUE,
     password   VARCHAR(255) NOT NULL,
-    telephone  VARCHAR(11)  NOT NULL,
+    telephone  VARCHAR(11),
     created_at TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
     active     BOOLEAN      NOT NULL DEFAULT TRUE
