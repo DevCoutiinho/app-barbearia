@@ -22,7 +22,19 @@ public record StandardErrorDTO(
         return  new StandardErrorDTO(HttpStatus.NOT_FOUND.value(), message, List.of());
     }
 
+    public static StandardErrorDTO unauthorized(String message){
+        return new StandardErrorDTO(HttpStatus.UNAUTHORIZED.value(), message, List.of());
+    }
+
+    public static StandardErrorDTO forbidden(String message){
+        return new StandardErrorDTO(HttpStatus.FORBIDDEN.value(), message, List.of());
+    }
+
     public static StandardErrorDTO internalServerError(String message){
         return new StandardErrorDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), message, List.of());
+    }
+
+    public static StandardErrorDTO of(HttpStatus status, String message){
+        return new StandardErrorDTO(status.value(), message, List.of());
     }
 }
