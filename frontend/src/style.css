@@ -1,54 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink: #1a1a1c;
-  --color-ink-soft: #2c2c2f;
-  --color-gold: #9c6c3d;
-  --color-gold-light: #c08a55;
-  --color-gold-pale: #f1e4d6;
-  --color-paper: #f4f4f2;
-  --color-paper-deep: #ececea;
-  --color-line: #e4e2de;
-  --color-text-soft: #6b6b6a;
-  --color-on-dark: #f4f4f2;
-  --color-on-dark-soft: #b9b7b2;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --radius-lg: 20px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
-  --animate-marquee: marquee 42s linear infinite;
-}
-
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-html {
-  scroll-behavior: smooth;
-  scroll-padding-top: calc(78px + env(safe-area-inset-top, 0px));
+    --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --color-gold: #c9a84c;
+    --color-gold-light: #e8c868;
+    --color-dark: #111111;
+    --color-dark-soft: #222222;
+    --color-surface: #fafafa;
 }
 
 body {
-  margin: 0;
-  background: var(--color-ink);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  .animate-marquee {
-    animation: none !important;
-    overflow-x: auto;
-  }
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
