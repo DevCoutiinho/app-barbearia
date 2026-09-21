@@ -41,8 +41,8 @@ function closeMenu() {
       </nav>
 
       <div class="flex items-center gap-3">
-        <a
-          href="#contato"
+        <RouterLink
+          to="/login"
           class="hidden rounded-lg border px-[18px] py-[9px] text-[0.87rem] font-semibold transition-colors duration-[350ms] min-[861px]:inline-flex"
           :class="
             scrolled
@@ -51,9 +51,9 @@ function closeMenu() {
           "
         >
           Entrar
-        </a>
-        <a
-          href="#contato"
+        </RouterLink>
+        <RouterLink
+          to="/register"
           class="hidden rounded-lg px-5 py-[9px] text-[0.87rem] font-semibold transition-colors duration-[350ms] min-[861px]:inline-flex"
           :class="
             scrolled
@@ -62,7 +62,7 @@ function closeMenu() {
           "
         >
           Criar conta
-        </a>
+        </RouterLink>
         <button
           type="button"
           class="flex size-10 items-center justify-center rounded-lg min-[861px]:hidden"

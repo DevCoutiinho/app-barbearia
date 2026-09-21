@@ -29,7 +29,7 @@ const onSubmit = handleSubmit(async (values) => {
         isLoading.value = true;
         await authService.login(values);
         toast.success('Login realizado com sucesso!');
-        router.push({ path: '/home', replace: true });
+        router.push({ path: '/', replace: true });
     } catch (error) {
         handleApiError(error, setFieldError, 'Erro ao fazer login. Verifique suas credenciais.');
     } finally {
@@ -42,7 +42,7 @@ const handleGoogleSuccess = async (response: any) => {
         isLoading.value = true;
         await authService.loginGoogle({ idToken: response.credential });
         toast.success('Login com Google realizado com sucesso!');
-        router.push('/home');
+        router.push('/');
     } catch (error) {
         handleApiError(error, undefined, 'Erro ao realizar login com o Google.');
     } finally {
