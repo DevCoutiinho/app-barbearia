@@ -3,7 +3,7 @@ import type { RegisterData, LoginData, LoginDataGoogle } from "../schemas/auth.s
 import type { ApiResponse } from "../types/api";
 
 export interface LoginResponse {
-    accessToken: string;
+    acessToken: string;
 }
 
 const authService = {
