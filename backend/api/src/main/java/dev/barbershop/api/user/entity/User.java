@@ -2,12 +2,11 @@ package dev.barbershop.api.user.entity;
 
 
 import dev.barbershop.api.auth.authorization.entity.Role;
-import dev.barbershop.api.availability.entity.Availability;
-import dev.barbershop.api.barberservice.entity.BarberService;
+import dev.barbershop.api.barber.entity.Barber;
+import dev.barbershop.api.client.entity.Client;
 import dev.barbershop.api.common.auditing.Auditable;
 import dev.barbershop.api.inventorymovement.entity.InventoryMovement;
 import dev.barbershop.api.notification.entity.Notification;
-import dev.barbershop.api.scheduling.entity.Scheduling;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -25,11 +24,9 @@ import java.util.*;
 @ToString(exclude = {
         "inventoryMovements",
         "roles",
-        "availabilities",
-        "services",
-        "barberSchedulings",
-        "clientSchedulings",
-        "notifications"
+        "notifications",
+        "barberProfile",
+        "clientProfile"
 })
 @Table(name = "users")
 public class User extends Auditable {
@@ -71,29 +68,27 @@ public class User extends Auditable {
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
-    @OneToMany(mappedBy = "barber", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    List<Availability> availabilities = new ArrayList<>();
-
-    @OneToMany(mappedBy = "barber")
-    @Builder.Default
-    List<BarberService> services = new ArrayList<>();
-
-    @OneToMany(mappedBy = "barber")
-    @Builder.Default
-    private List<Scheduling> barberSchedulings = new ArrayList<>();
-
-    @OneToMany(mappedBy = "client")
-    @Builder.Default
-    private List<Scheduling> clientSchedulings = new ArrayList<>();
-
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Notification> notifications = new ArrayList<>();
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Barber barberProfile;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Client clientProfile;
 
     public void addRole(Role role) {
         Objects.requireNonNull(role);
         roles.add(role);
         role.addUser(this);
+    }
+
+    public void addClient(Client client) {
+        this.clientProfile = Objects.requireNonNull(client);
+    }
+
+    public void addBarber(Barber barber){
+        this.barberProfile = Objects.requireNonNull(barber);
     }
 }

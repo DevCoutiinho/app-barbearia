@@ -1,9 +1,9 @@
 package dev.barbershop.api.barberservice.entity;
 
+import dev.barbershop.api.barber.entity.Barber;
 import dev.barbershop.api.barberservice.enums.BarberServiceTechnique;
 import dev.barbershop.api.common.auditing.Auditable;
 import dev.barbershop.api.scheduling.entity.Scheduling;
-import dev.barbershop.api.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -32,7 +32,7 @@ public class BarberService extends Auditable {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "barber_id", nullable = false)
-    private User barber;
+    private Barber barber;
 
     @Column(nullable = false)
     private String name;

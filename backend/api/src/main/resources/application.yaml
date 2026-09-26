@@ -27,7 +27,8 @@ api:
       secret: ${JWT_SECRET:chave-super-secreta}
       google-issuer: https://accounts.google.com
       local-issuer: http://localhost:8080
-      local-expiration: 3600 # 1 hora
+      local-expiration: 900 # 15 minutos
+      refresh-expiration: 604800 # 7 dias
 
 
 server:

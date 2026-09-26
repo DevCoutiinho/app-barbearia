@@ -1,11 +1,14 @@
 package dev.barbershop.api.common.exception;
 
+import dev.barbershop.api.auth.authentication.exception.InvalidTokenException;
+import dev.barbershop.api.auth.authentication.exception.MissingRefreshTokenException;
 import dev.barbershop.api.common.dto.FieldErrorDTO;
 import dev.barbershop.api.common.dto.StandardErrorDTO;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -13,6 +16,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestCookieException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -131,5 +135,17 @@ public class GlobalExceptionHandler {
     public StandardErrorDTO handleGenericException(Exception exception) {
         log.error("Erro interno não tratado no servidor: ", exception);
         return StandardErrorDTO.internalServerError("Ocorreu um erro interno no servidor. Tente novamente mais tarde.");
+    }
+
+    @ExceptionHandler(MissingRefreshTokenException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public StandardErrorDTO MissingRefreshToken(MissingRefreshTokenException exception) {
+        return StandardErrorDTO.unauthorized(exception.getMessage());
+    }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public StandardErrorDTO MissingRefreshToken(InvalidTokenException exception) {
+        return StandardErrorDTO.unauthorized(exception.getMessage());
     }
 }

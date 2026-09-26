@@ -1,5 +1,6 @@
 package dev.barbershop.api.config.security;
 
+import dev.barbershop.api.auth.authorization.enums.RoleName;
 import dev.barbershop.api.common.security.AuthorityMapper;
 import dev.barbershop.api.user.entity.User;
 import dev.barbershop.api.user.repository.UserRepository;
@@ -30,14 +31,15 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = repository.findByEmailWitchRoles(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Nenhum usuário encontrado com esse email"));
 
-        System.out.println("USUARIO ENCONTRADO: " + user);
-        Set<GrantedAuthority> authorities = authorityMapper.map(user);
+        Set<GrantedAuthority> authorities = authorityMapper.mapToAuthorities(user);
+        Set<RoleName> roles = authorityMapper.mapToRoleName(user);
 
         return new CustomUserDetails(
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
                 user.getPassword(),
+                roles,
                 authorities
         );
     }
