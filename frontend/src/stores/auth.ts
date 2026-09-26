@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { jwtDecode } from 'jwt-decode'
 import authService, { type LoginResponse } from '../services/authService'
 import type { LoginData, LoginDataGoogle } from '../schemas/auth.schema'
 import type { ApiResponse } from '../types/api'
@@ -8,91 +9,145 @@ interface AuthUser {
   id: string
   name: string
   email: string
+  roles: string[]
   permissions: string[]
   exp: number
 }
 
-const sessionKey = 'barbershop.accessToken'
+const SESSION_KEY = 'accessToken'
+const MAX_TIMEOUT = 2_147_483_647 // Limite máximo para setTimeout (32-bit int)
 
-// Claims control presentation only. The API validates signatures and permissions.
-function readUser(token: string): AuthUser {
-  const payload = token.split('.')[1]
-  if (!payload) throw new Error('Token inválido')
-  const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
-  const bytes = Uint8Array.from(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')), char => char.charCodeAt(0))
-  const user = JSON.parse(new TextDecoder().decode(bytes))
-  if (typeof user.id !== 'string' || typeof user.name !== 'string' || !user.name.trim()
-    || typeof user.email !== 'string' || !Array.isArray(user.permissions)
-    || !user.permissions.every((permission: unknown) => typeof permission === 'string')
-    || typeof user.exp !== 'number' || !Number.isFinite(user.exp) || user.exp * 1000 <= Date.now()) {
-    throw new Error('Sessão inválida ou expirada')
-  }
-  return user
-}
 
 export const useAuthStore = defineStore('auth', () => {
+
   const accessToken = ref<string | null>(null)
   const user = ref<AuthUser | null>(null)
   const initialized = ref(false)
   let expirationTimer: ReturnType<typeof setTimeout> | undefined
-  const isAuthenticated = computed(() => user.value !== null)
-  const firstName = computed(() => user.value?.name.trim().split(/\s+/)[0] ?? '')
-  const role = computed(() => ['ADMIN', 'BARBER', 'USER'].find(value => user.value?.permissions.includes(value)))
 
-  function clearSession() {
+  const isAuthenticated = computed(() => !!user.value)
+  const firstName = computed(() => user.value?.name.trim().split(/\s+/)[0] ?? '')
+
+  // ====================
+  // Métodos Privados
+  // ====================
+  function clearSessionState() {
     clearTimeout(expirationTimer)
     accessToken.value = null
     user.value = null
   }
 
-  function logout() {
-    clearSession()
-    localStorage.removeItem(sessionKey)
-  }
-
-  function scheduleExpiration() {
+  function scheduleTokenExpiration() {
     clearTimeout(expirationTimer)
+    
     if (!user.value) return
-    const remaining = user.value.exp * 1000 - Date.now()
-    if (remaining <= 0) logout()
-    else expirationTimer = setTimeout(scheduleExpiration, Math.min(remaining, 2_147_483_647))
+
+    const timeUntilExpiration = user.value.exp * 1000 - Date.now()
+    
+    if (timeUntilExpiration <= 0) {
+      logout()
+      return
+    }
+
+    expirationTimer = setTimeout(scheduleTokenExpiration, Math.min(timeUntilExpiration, MAX_TIMEOUT))
   }
 
-  function setSession(token: string, persist: boolean) {
-    const authenticatedUser = readUser(token)
-    if (persist) localStorage.setItem(sessionKey, token)
+  function applyTokenToSession(token: string, persist: boolean) {
+    const decodedUser = jwtDecode<AuthUser>(token)
+    
+    console.log(JSON.stringify(decodedUser));
+    
+
+    if (persist) {
+      localStorage.setItem(SESSION_KEY, token)
+    }
+
     accessToken.value = token
-    user.value = authenticatedUser
-    scheduleExpiration()
+    user.value = decodedUser
+    scheduleTokenExpiration()
   }
 
+  function handleLoginSuccess(response: ApiResponse<LoginResponse[]>) {
+    const token = response.data?.[0]?.accessToken
+
+    if (!token) {
+      // Repassa a mensagem retornada pela API ou um fallback coerente caso a mensagem falte
+      throw new Error(response.message || 'A API não retornou um token de acesso válido.')
+    }
+
+    applyTokenToSession(token, true)
+    initialized.value = true
+  }
+
+  // ====================
+  // Ações Públicas
+  // ====================
   function restoreSession() {
     try {
-      const token = localStorage.getItem(sessionKey)
-      if (token) setSession(token, false)
-      else clearSession()
+      const token = localStorage.getItem(SESSION_KEY)
+      
+      if (token) {
+        applyTokenToSession(token, false)
+      } else {
+        clearSessionState()
+      }
     } catch {
-      clearSession()
-      try { localStorage.removeItem(sessionKey) } catch { /* Storage may be unavailable. */ }
+      // Em caso de corrupção do localStorage ou token inválido
+      clearSessionState()
+      localStorage.removeItem(SESSION_KEY)
     } finally {
       initialized.value = true
     }
   }
 
-  function acceptLogin(response: ApiResponse<LoginResponse[]>) {
-    const token = response.data?.[0]?.acessToken
-    if (!token) throw new Error('Resposta de autenticação inválida')
-    setSession(token, true)
-    initialized.value = true
-  }
-
   async function login(data: LoginData) {
-    acceptLogin(await authService.login(data))
+    const response = await authService.login(data)
+    handleLoginSuccess(response)
   }
 
   async function loginGoogle(data: LoginDataGoogle) {
-    acceptLogin(await authService.loginGoogle(data))
+    const response = await authService.loginGoogle(data)
+    handleLoginSuccess(response)
   }
 
-  return { accessToken, user, initialized, isAuthenticated, firstName, role, login, loginGoogle, logout, restoreSession }
+  async function refresh() {
+    try {
+      const response = await authService.refreshToken()
+      handleLoginSuccess(response)
+    } catch (error) {
+      await logout()
+      throw error // Mantém o repasse do erro gerado pela API
+    }
+  }
+
+  async function logout() {
+    try {
+      if (accessToken.value) {
+        await authService.logout()
+      }
+    } catch (error) {
+      console.error('Falha ao deslogar pela API:', error)
+    } finally {
+      clearSessionState()
+      localStorage.removeItem(SESSION_KEY)
+    }
+  }
+
+  return {
+    // Refs
+    accessToken,
+    user,
+    initialized,
+    
+    // Computed
+    isAuthenticated,
+    firstName,
+    
+    // Actions
+    login,
+    loginGoogle,
+    refresh,
+    logout,
+    restoreSession
+  }
 })

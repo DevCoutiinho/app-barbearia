@@ -1,9 +1,10 @@
 package dev.barbershop.api.scheduling.entity;
 
+import dev.barbershop.api.barber.entity.Barber;
 import dev.barbershop.api.barberservice.entity.BarberService;
+import dev.barbershop.api.client.entity.Client;
 import dev.barbershop.api.common.auditing.Auditable;
 import dev.barbershop.api.scheduling.enums.SchedulingStatus;
-import dev.barbershop.api.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,11 +32,11 @@ public class Scheduling extends Auditable {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "barber_id", nullable = false)
-    private User barber;
+    private Barber barber;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "client_id", nullable = false)
-    private User client;
+    private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "service_id", nullable = false)

@@ -1,5 +1,7 @@
 package dev.barbershop.api.common.security;
 
+import dev.barbershop.api.auth.authorization.entity.Role;
+import dev.barbershop.api.auth.authorization.enums.RoleName;
 import dev.barbershop.api.user.entity.User;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -14,20 +16,19 @@ import java.util.stream.Stream;
 @Component
 public class AuthorityMapper {
 
-    public Set<GrantedAuthority> map(User user) {
+    public Set<GrantedAuthority> mapToAuthorities(User user) {
+
         return user.getRoles()
                 .stream()
-                .flatMap(role -> {
-                    Stream<GrantedAuthority> roleAuthority =
-                            Stream.of(new SimpleGrantedAuthority(role.getName().name()));
+                .flatMap(role -> role.getPermissions().stream())
+                .map(permission -> new SimpleGrantedAuthority(permission.getName().name()))
+                .collect(Collectors.toSet());
+    }
 
-                    Stream<GrantedAuthority> permissionAuthorities =
-                            role.getPermissions()
-                                    .stream()
-                                    .map(permission -> new SimpleGrantedAuthority(permission.getName().name()));
-
-                    return Stream.concat(roleAuthority, permissionAuthorities);
-
-                }).collect(Collectors.toSet());
+    public Set<RoleName> mapToRoleName(User user) {
+        return user.getRoles()
+                .stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
     }
 }

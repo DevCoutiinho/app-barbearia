@@ -1,9 +1,8 @@
 package dev.barbershop.api.availability.entity;
 
-import dev.barbershop.api.user.entity.User;
+import dev.barbershop.api.barber.entity.Barber;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalTime;
 import java.util.UUID;
 
@@ -24,7 +23,7 @@ public class Availability {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "barber_id", nullable = false)
-    private User barber;
+    private Barber barber;
 
     @Column(name = "day_week", nullable = false)
     private Integer dayWeek;

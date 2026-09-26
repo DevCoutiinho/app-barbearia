@@ -50,7 +50,7 @@ test('authentication state, API contract, restoration and logout', async t => {
     const accessToken = token()
     api.defaults.adapter = async config => {
       assert.equal(config.url, method === 'login' ? '/auth/login' : '/auth/login/google')
-      return { data: { status: 200, data: [{ acessToken: accessToken }] }, status: 200, statusText: 'OK', headers: {}, config }
+      return { data: { status: 200, data: [{ accessToken: accessToken }] }, status: 200, statusText: 'OK', headers: {}, config }
     }
     await auth[method](method === 'login' ? { email: 'test@example.invalid', password: 'test-only' } : { idToken: 'test-only' })
     assert.equal(auth.firstName, 'João')

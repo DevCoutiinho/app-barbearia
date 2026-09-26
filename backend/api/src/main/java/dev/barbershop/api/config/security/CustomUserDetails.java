@@ -1,5 +1,6 @@
 package dev.barbershop.api.config.security;
 
+import dev.barbershop.api.auth.authorization.enums.RoleName;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -22,7 +23,10 @@ public class CustomUserDetails implements UserDetails, CredentialsContainer {
     private final String email;
 
     private @Nullable String password;
+
+    private final  Set<RoleName> roles;
     private final Set<GrantedAuthority> authorities;
+
 
     @Override
     public String getUsername() {
