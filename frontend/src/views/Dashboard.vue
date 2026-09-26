@@ -1,11 +1,11 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { onKeyStroke, useMediaQuery } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import {
   ArrowDownToLine, Bell, CalendarDays, CalendarPlus, CircleX, ClipboardList,
-  Eye, KeyRound, Layers, LayoutDashboard, LogOut, Menu, Package, Pencil, Plus,
+  Eye, History, Home, KeyRound, Layers, LayoutDashboard, LogOut, Menu, Package, Pencil, Plus,
   RefreshCw, Scissors, Search, Settings, ShieldCheck, Trash2, TrendingUp, UserRound,
   Users, UserRoundCog, X,
 } from '@lucide/vue'
@@ -30,7 +30,12 @@ const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'curren
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 const initials = (name: string) => name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('')
 const userInitials = computed(() => auth.user ? initials(auth.user.name) : 'BF')
-const roleLabel = computed(() => ({ ADMIN: 'Administrador', BARBER: 'Barbeiro', USER: 'Cliente' })[auth.role ?? 'USER'])
+const roleLabel = computed(() => {
+  const roles = auth.user?.roles || []
+  if (roles.includes('ADMIN')) return 'Administrador'
+  if (roles.includes('BARBEIRO') || roles.includes('BARBER')) return 'Barbeiro'
+  return 'Cliente'
+})
 const dailyAppointments = computed(() => appointments.filter(item => item.date === selectedDate.value))
 const completed = computed(() => dailyAppointments.value.filter(item => item.status === 'Concluído'))
 const revenue = computed(() => completed.value.reduce((sum, item) => sum + item.price, 0))
@@ -52,32 +57,67 @@ const statusClasses: Record<AppointmentStatus, string> = {
   Pendente: 'bg-[#fbf0db] text-[#b57d19]',
   Cancelado: 'bg-red-50 text-red-700',
 }
-const navigation = [
-  { title: 'Operação', items: [
-    { label: 'Dashboard', icon: LayoutDashboard, target: '#dashboard-content' },
-    { label: 'Agendamentos', icon: CalendarDays, target: '#agenda' },
-    { label: 'Agenda', icon: CalendarPlus, target: '#agenda' },
-  ] },
-  { title: 'Pessoas', items: [
-    { label: 'Usuários', icon: Users, target: '' },
-    { label: 'Barbeiros', icon: Users, target: '#equipe' },
-    { label: 'Clientes', icon: UserRound, target: '' },
-  ] },
-  { title: 'Catálogo e insumos', items: [
-    { label: 'Serviços', icon: Scissors, target: '#servicos' },
-    { label: 'Catálogo', icon: Layers, target: '#servicos' },
-    { label: 'Estoque', icon: Package, target: '' },
-  ] },
-  { title: 'Autorização', items: [
-    { label: 'Roles', icon: ShieldCheck, target: '' },
-    { label: 'Permissões', icon: KeyRound, target: '' },
-    { label: 'Checklists', icon: ClipboardList, target: '' },
-  ] },
-  { title: 'Conta', items: [
-    { label: 'Notificações', icon: Bell, target: '' },
-    { label: 'Configurações', icon: Settings, target: '' },
-  ] },
-]
+const navigation = computed(() => {
+  const roles = auth.user?.roles || []
+  const isAdmin = roles.includes('ADMIN')
+  const isBarber = roles.includes('BARBEIRO') || roles.includes('BARBER')
+
+  if (isAdmin) {
+    return [
+      { title: '', items: [
+        { label: 'Dashboard', icon: LayoutDashboard, target: '#dashboard-content' },
+      ] },
+      { title: 'Administração', items: [
+        { label: 'Roles', icon: ShieldCheck, target: '' },
+        { label: 'Permissões', icon: KeyRound, target: '' },
+        { label: 'Usuários', icon: Users, target: '' },
+        { label: 'Estoque', icon: Package, target: '' },
+        { label: 'Serviços', icon: Scissors, target: '#servicos' },
+        { label: 'Configurações', icon: Settings, target: '' },
+      ] },
+      { title: 'Conta', items: [
+        { label: 'Notificações', icon: Bell, target: '' },
+        { label: 'Perfil', icon: UserRound, target: '' },
+      ] },
+    ]
+  }
+
+  if (isBarber) {
+    return [
+      { title: 'Meu dia', items: [
+        { label: 'Dashboard', icon: LayoutDashboard, target: '#dashboard-content' },
+        { label: 'Minha agenda', icon: CalendarDays, target: '#agenda' },
+        { label: 'Agendamentos', icon: ClipboardList, target: '#agenda' },
+      ] },
+      { title: 'Trabalho', items: [
+        { label: 'Meus serviços', icon: Scissors, target: '#servicos' },
+        { label: 'Estoque', icon: Package, target: '' },
+        { label: 'Histórico', icon: History, target: '' },
+      ] },
+      { title: 'Conta', items: [
+        { label: 'Notificações', icon: Bell, target: '' },
+        { label: 'Perfil', icon: UserRound, target: '' },
+      ] },
+    ]
+  }
+
+  return [
+    { title: '', items: [
+      { label: 'Início', icon: Home, target: '#dashboard-content' },
+      { label: 'Agendar', icon: CalendarPlus, target: '#agenda' },
+      { label: 'Meus agendamentos', icon: ClipboardList, target: '#agenda' },
+      { label: 'Histórico', icon: History, target: '' },
+    ] },
+    { title: 'Explorar', items: [
+      { label: 'Barbeiros', icon: Users, target: '#equipe' },
+      { label: 'Serviços', icon: Scissors, target: '#servicos' },
+    ] },
+    { title: 'Conta', items: [
+      { label: 'Notificações', icon: Bell, target: '' },
+      { label: 'Perfil', icon: UserRound, target: '' },
+    ] },
+  ]
+})
 
 const weeklyAppointments = computed(() => {
   const selected = new Date(`${selectedDate.value || dashboardDate}T12:00:00`)
@@ -187,13 +227,17 @@ function exportAppointments() {
       </div>
       <nav aria-label="Navegação do dashboard" class="min-h-0 flex-1 overflow-y-auto px-[10px] pb-4">
         <div v-for="group in navigation" :key="group.title" class="mt-[18px]">
-          <p class="mb-1 px-[11px] text-[11px] leading-4 font-medium text-[#74747f]">{{ group.title }}</p>
+          <p v-if="group.title" class="mb-1 px-[11px] text-[11px] leading-4 font-medium text-[#74747f]">{{ group.title }}</p>
           <template v-for="item in group.items" :key="item.label">
-            <a v-if="item.target" :href="item.target" class="nav-item" :class="item.label === 'Dashboard' ? 'bg-ink font-semibold text-white' : 'text-[#303039] hover:bg-paper'" :aria-current="item.label === 'Dashboard' ? 'page' : undefined" @click="sidebarOpen = false">
-              <component :is="item.icon" class="size-[17px] shrink-0" :class="item.label === 'Dashboard' ? 'text-[#a67039]' : 'text-[#74747f]'" :stroke-width="1.7" aria-hidden="true" />{{ item.label }}
+            <a v-if="item.target" :href="item.target" class="nav-item" :class="['Dashboard', 'Início'].includes(item.label) ? 'bg-ink font-semibold text-white' : 'text-[#303039] hover:bg-paper'" :aria-current="['Dashboard', 'Início'].includes(item.label) ? 'page' : undefined" @click="sidebarOpen = false">
+              <component :is="item.icon" class="size-[17px] shrink-0" :class="['Dashboard', 'Início'].includes(item.label) ? 'text-[#a67039]' : 'text-[#74747f]'" :stroke-width="1.7" aria-hidden="true" />{{ item.label }}
             </a>
             <button v-else type="button" class="nav-item w-full text-[#303039] hover:bg-paper" :title="`${item.label} ainda não está disponível`" @click="unavailable(item.label)">
-              <component :is="item.icon" class="size-[17px] shrink-0 text-[#74747f]" :stroke-width="1.7" aria-hidden="true" />{{ item.label }}
+              <component :is="item.icon" class="size-[17px] shrink-0 text-[#74747f]" :stroke-width="1.7" aria-hidden="true" />
+              <div class="flex flex-1 justify-between items-center">
+                <span>{{ item.label }}</span>
+                <span v-if="item.label === 'Notificações'" class="flex h-5 items-center justify-center rounded-full bg-[#a67039] px-1.5 text-[10px] font-bold text-white">3</span>
+              </div>
             </button>
           </template>
         </div>

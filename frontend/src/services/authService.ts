@@ -3,7 +3,7 @@ import type { RegisterData, LoginData, LoginDataGoogle } from "../schemas/auth.s
 import type { ApiResponse } from "../types/api";
 
 export interface LoginResponse {
-    acessToken: string;
+    accessToken: string;
 }
 
 const authService = {
@@ -18,6 +18,14 @@ const authService = {
     },
     async loginGoogle(data: LoginDataGoogle): Promise<ApiResponse<LoginResponse[]>> {
         const response = await api.post('/auth/login/google', data);
+        return response.data;
+    },
+    async logout(): Promise<ApiResponse<void>> {
+        const response = await api.post('/auth/logout');
+        return response.data;
+    },
+    async refreshToken(): Promise<ApiResponse<LoginResponse[]>> {
+        const response = await api.post('/auth/refresh');
         return response.data;
     }
 }
