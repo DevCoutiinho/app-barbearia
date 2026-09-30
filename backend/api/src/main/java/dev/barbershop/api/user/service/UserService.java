@@ -9,12 +9,15 @@ import dev.barbershop.api.auth.authorization.repository.RoleRepository;
 import dev.barbershop.api.auth.authorization.entity.Role;
 import dev.barbershop.api.common.exception.ResourceNotFoundException;
 import dev.barbershop.api.config.security.CustomUserDetails;
+
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Example;
+import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +28,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserService {
+
     private final UserRepository repository;
     private final UserMapper mapper;
     private final PasswordEncoder passwordEncoder;
@@ -45,24 +49,48 @@ public class UserService {
     }
 
     public List<UserAdmDTO> findByName(String name) {
-        return repository.findByNameContainingIgnoreCase(name)
+        User probe = User.builder()
+            .name(name)
+            .build();
+
+        Example<User> example = Example.of(probe, defaultMatcher());
+
+        return repository.findAll(example)
             .stream()
             .map(mapper::toAdmDTO)
             .toList();
     }
 
     public List<UserAdmDTO> findByEmail(String email) {
-        return repository.findByEmailContainingIgnoreCase(email)
+        User probe = User.builder()
+            .email(email)
+            .build();
+
+        Example<User> example = Example.of(probe, defaultMatcher());
+
+        return repository.findAll(example)
             .stream()
             .map(mapper::toAdmDTO)
             .toList();
     }
 
     public List<UserAdmDTO> findByTelephone(String telephone) {
-        return repository.findByTelephoneContainingIgnoreCase(telephone)
+        User probe = User.builder()
+            .telephone(telephone)
+            .build();
+
+        Example<User> example = Example.of(probe, defaultMatcher());
+
+        return repository.findAll(example)
             .stream()
             .map(mapper::toAdmDTO)
             .toList();
+    }
+
+    private ExampleMatcher defaultMatcher() {
+        return ExampleMatcher.matching()
+            .withIgnoreCase()
+            .withStringMatcher(ExampleMatcher.StringMatcher.CONTAINING);
     }
 
     @Transactional
