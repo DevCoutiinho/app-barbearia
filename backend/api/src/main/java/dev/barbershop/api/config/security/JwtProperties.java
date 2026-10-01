@@ -13,4 +13,5 @@ public class JwtProperties {
     private String googleIssuer;
     private String localIssuer;
     private Long localExpiration;
+    private Long refreshExpiration;
 }

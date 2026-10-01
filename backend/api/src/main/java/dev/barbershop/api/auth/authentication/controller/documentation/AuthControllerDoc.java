@@ -16,9 +16,11 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import jakarta.servlet.http.HttpServletRequest;
 
 @Tag(name = "Autenticação", description = "Endpoints de cadastro e login de usuários")
 @RequestMapping("/auth")
@@ -79,7 +81,7 @@ public interface AuthControllerDoc {
             )
     })
     @PostMapping("login")
-    ResponseEntity<ApiResponseDTO<LoginResponseDTO>> login(@RequestBody @Valid LoginDTO dto);
+    ResponseEntity<ApiResponseDTO<LoginResponseDTO>> login(@RequestBody @Valid LoginDTO dto, HttpServletRequest request);
 
     @Operation(
             summary = "Login com Google",
@@ -107,5 +109,18 @@ public interface AuthControllerDoc {
             )
     })
     @PostMapping("login/google")
-    ResponseEntity<ApiResponseDTO<LoginResponseDTO>> loginWithGoogle(@RequestBody @Valid GoogleLoginDTO dto);
+    ResponseEntity<ApiResponseDTO<LoginResponseDTO>> loginWithGoogle(@RequestBody @Valid GoogleLoginDTO dto, HttpServletRequest request);
+
+    @PostMapping("/refresh")
+    ResponseEntity<ApiResponseDTO<LoginResponseDTO>> refreshToken(@CookieValue(value = "refreshToken", required = false) String refreshToken, HttpServletRequest request);
+
+    @Operation(
+            summary = "Logout",
+            description = "Realiza o logout invalidando o refresh token"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logout realizado com sucesso")
+    })
+    @PostMapping("/logout")
+    ResponseEntity<ApiResponseDTO<Void>> logout(@CookieValue(value = "refreshToken", required = false) String refreshToken);
 }

@@ -19,6 +19,14 @@ const authService = {
     async loginGoogle(data: LoginDataGoogle): Promise<ApiResponse<LoginResponse[]>> {
         const response = await api.post('/auth/login/google', data);
         return response.data;
+    },
+    async logout(): Promise<ApiResponse<void>> {
+        const response = await api.post('/auth/logout');
+        return response.data;
+    },
+    async refreshToken(): Promise<ApiResponse<LoginResponse[]>> {
+        const response = await api.post('/auth/refresh');
+        return response.data;
     }
 }
 

@@ -6,12 +6,13 @@ import { useRouter } from 'vue-router';
 import { toast } from 'vue-sonner';
 import { ref } from 'vue';
 import { Mail, Lock, Scissors, ArrowRight, Loader2 } from '@lucide/vue';
-import authService from '../../services/authService';
+import { useAuthStore } from '../../stores/auth';
 import heroImg from '../../assets/barbershop-hero.jpg';
 import { GoogleSignInButton } from "vue3-google-signin";
 import { handleApiError } from '../../utils/errorHandler';
 
 const router = useRouter();
+const auth = useAuthStore();
 const isLoading = ref(false);
 const showPassword = ref(false);
 
@@ -27,9 +28,9 @@ const { value: password } = useField<string>('password');
 const onSubmit = handleSubmit(async (values) => {
     try {
         isLoading.value = true;
-        await authService.login(values);
+        await auth.login(values);
         toast.success('Login realizado com sucesso!');
-        router.push({ path: '/', replace: true });
+        await router.replace({ name: 'home' });
     } catch (error) {
         handleApiError(error, setFieldError, 'Erro ao fazer login. Verifique suas credenciais.');
     } finally {
@@ -40,9 +41,9 @@ const onSubmit = handleSubmit(async (values) => {
 const handleGoogleSuccess = async (response: any) => {
     try {
         isLoading.value = true;
-        await authService.loginGoogle({ idToken: response.credential });
+        await auth.loginGoogle({ idToken: response.credential });
         toast.success('Login com Google realizado com sucesso!');
-        router.push('/');
+        await router.replace({ name: 'home' });
     } catch (error) {
         handleApiError(error, undefined, 'Erro ao realizar login com o Google.');
     } finally {

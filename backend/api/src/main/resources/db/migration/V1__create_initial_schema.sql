@@ -61,6 +61,32 @@ CREATE TABLE roles_permissions
     PRIMARY KEY (role_id, permission_id)
 );
 
+CREATE TABLE barbers
+(
+    id         UUID PRIMARY KEY,
+    user_id    UUID        NOT NULL UNIQUE,
+    bio        VARCHAR(500),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_barber_user
+        FOREIGN KEY (user_id)
+            REFERENCES users (id)
+            ON DELETE CASCADE
+);
+
+CREATE TABLE clients
+(
+    id             UUID PRIMARY KEY,
+    user_id        UUID        NOT NULL UNIQUE,
+    loyalty_points INT                  DEFAULT 0,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_client_user
+        FOREIGN KEY (user_id)
+            REFERENCES users (id)
+            ON DELETE CASCADE
+);
+
 CREATE TABLE notifications
 (
     id         UUID PRIMARY KEY,
@@ -103,7 +129,7 @@ CREATE TABLE services
 
     CONSTRAINT fk_service_barber
         FOREIGN KEY (barber_id)
-            REFERENCES users (id)
+            REFERENCES barbers (id)
             ON DELETE RESTRICT,
 
     CONSTRAINT fk_service_category
@@ -127,12 +153,12 @@ CREATE TABLE schedulings
 
     CONSTRAINT fk_scheduling_barber
         FOREIGN KEY (barber_id)
-            REFERENCES users (id)
+            REFERENCES barbers (id)
             ON DELETE RESTRICT,
 
     CONSTRAINT fk_scheduling_client
         FOREIGN KEY (client_id)
-            REFERENCES users (id)
+            REFERENCES clients (id)
             ON DELETE RESTRICT,
 
     CONSTRAINT fk_scheduling_service
@@ -154,7 +180,7 @@ CREATE TABLE availabilities
 
     CONSTRAINT fk_availability_barber
         FOREIGN KEY (barber_id)
-            REFERENCES users (id)
+            REFERENCES barbers (id)
             ON DELETE CASCADE
 );
 
@@ -202,5 +228,23 @@ CREATE TABLE service_images
     created_at TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_image_service
-        FOREIGN KEY (service_id) REFERENCES services (id) ON DELETE CASCADE
+        FOREIGN KEY (service_id)
+            REFERENCES services (id)
+            ON DELETE CASCADE
 );
+
+CREATE TABLE refresh_tokens
+(
+    id         UUID PRIMARY KEY,
+    user_id    UUID         NOT NULL,
+    token      VARCHAR(100) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ  NOT NULL,
+    revoked    BOOLEAN      NOT NULL DEFAULT FALSE,
+    ip_address VARCHAR(45),
+    user_agent VARCHAR,
+
+    CONSTRAINT fk_user_refresh_token
+        FOREIGN KEY (user_id)
+            REFERENCES users (id)
+            ON DELETE CASCADE
+)

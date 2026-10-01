@@ -1,5 +1,6 @@
 package dev.barbershop.api.config.security;
 
+import dev.barbershop.api.auth.authorization.enums.RoleName;
 import dev.barbershop.api.common.exception.ResourceNotFoundException;
 import dev.barbershop.api.common.security.AuthorityMapper;
 import dev.barbershop.api.user.entity.User;
@@ -36,13 +37,17 @@ public class UserDetailsJwtPrincipalConverter implements Converter<Jwt, OAuth2Au
         User user = repository.findByEmailWitchRoles(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
 
-        Set<GrantedAuthority> authorities = authorityMapper.map(user);
+        Set<GrantedAuthority> authorities = authorityMapper.mapToAuthorities(user);
+        Set<RoleName> roles = authorityMapper.mapToRoleName(user);
+
+        System.out.println("authorities : " + authorities);
 
         CustomUserDetails customUserDetails = new CustomUserDetails(
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
                 user.getPassword(),
+                roles,
                 authorities
         );
 
@@ -53,7 +58,7 @@ public class UserDetailsJwtPrincipalConverter implements Converter<Jwt, OAuth2Au
         private final Jwt jwt;
 
         private JwtUser(Jwt jwt, CustomUserDetails user) {
-            super(user.getId(), user.getName(), user.getEmail(), user.getPassword(), user.getAuthorities());
+            super(user.getId(), user.getName(), user.getEmail(), user.getPassword(), user.getRoles(), user.getAuthorities());
             this.jwt = jwt;
         }
 
