@@ -6,7 +6,6 @@ import dev.barbershop.api.auth.authentication.dto.LoginResponseDTO;
 import dev.barbershop.api.auth.authentication.mapper.AuthMapper;
 import dev.barbershop.api.auth.authentication.dto.UserCreateDTO;
 import dev.barbershop.api.auth.authorization.entity.Role;
-import dev.barbershop.api.auth.authorization.enums.RoleName;
 import dev.barbershop.api.auth.authorization.repository.RoleRepository;
 import dev.barbershop.api.common.exception.ResourceAlreadyExistsException;
 import dev.barbershop.api.common.exception.ResourceNotFoundException;
@@ -47,7 +46,7 @@ public class AuthService {
             throw new ResourceAlreadyExistsException("Email já cadastrado");
         }
 
-        Role defaultRole = roleRepository.findByName(RoleName.USER)
+        Role defaultRole = roleRepository.findByName("USER")
                 .orElseThrow(() -> new ResourceNotFoundException("Nennhuma role encontra com o nome USER"));
 
         User user = User.builder()
@@ -104,7 +103,7 @@ public class AuthService {
         String name = googleJwt.getClaimAsString("name");
         String picture = googleJwt.getClaimAsString("picture");
 
-        Role defaultRole = roleRepository.findByName(RoleName.USER)
+        Role defaultRole = roleRepository.findByName("USER")
                 .orElseThrow(() -> new ResourceNotFoundException("Nennhuma role encontra com o nome USER"));
 
         User user = User.builder()

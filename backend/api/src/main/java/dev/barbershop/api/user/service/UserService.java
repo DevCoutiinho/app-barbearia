@@ -98,9 +98,10 @@ public class UserService {
         User user = repository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
 
-        Set<Role> roles = dto.roles().stream()
+        Set<Role> roles = dto.roles()
+            .stream()
             .map(roleName -> roleRepository.findByName(roleName)
-                .orElseThrow(() -> new ResourceNotFoundException("Role não encontrada")))
+                .orElseThrow(() -> new ResourceNotFoundException("Role não encontrada: " + roleName)))
             .collect(Collectors.toSet());
 
         user.replaceRoles(roles);

@@ -1,7 +1,6 @@
 package dev.barbershop.api.config.initialization;
 
 import dev.barbershop.api.auth.authorization.entity.Role;
-import dev.barbershop.api.auth.authorization.enums.RoleName;
 import dev.barbershop.api.auth.authorization.repository.RoleRepository;
 import dev.barbershop.api.common.exception.ResourceNotFoundException;
 import dev.barbershop.api.user.entity.User;
@@ -36,7 +35,7 @@ public class AdminSeeder implements CommandLineRunner {
         
         if (!repository.existsByEmail(ADMIN_EMAIL)) {
 
-            Role defaultRole = roleRepository.findByName(RoleName.ADMIN)
+            Role defaultRole = roleRepository.findByName("ADMIN")
                 .orElseThrow(() -> new ResourceNotFoundException("Nenhuma role com o nome ADMIN"));
 
             User admin = User.builder()

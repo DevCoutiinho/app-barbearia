@@ -1,6 +1,5 @@
 package dev.barbershop.api.auth.authorization.entity;
 
-import dev.barbershop.api.auth.authorization.enums.PermissionName;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,9 +22,8 @@ public class Permission {
     @EqualsAndHashCode.Include
     private UUID id;
 
-    @Enumerated(EnumType.STRING)
     @Column(unique = true, nullable = false, length = 50)
-    private PermissionName name;
+    private String name;
 
     private String description;
 

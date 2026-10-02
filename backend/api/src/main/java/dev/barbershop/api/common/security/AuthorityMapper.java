@@ -19,12 +19,12 @@ public class AuthorityMapper {
                 .stream()
                 .flatMap(role -> {
                     Stream<GrantedAuthority> roleAuthority =
-                            Stream.of(new SimpleGrantedAuthority(role.getName().name()));
+                            Stream.of(new SimpleGrantedAuthority(role.getName()));
 
                     Stream<GrantedAuthority> permissionAuthorities =
                             role.getPermissions()
                                     .stream()
-                                    .map(permission -> new SimpleGrantedAuthority(permission.getName().name()));
+                                    .map(permission -> new SimpleGrantedAuthority(permission.getName()));
 
                     return Stream.concat(roleAuthority, permissionAuthorities);
 

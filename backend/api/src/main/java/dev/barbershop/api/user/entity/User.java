@@ -101,4 +101,9 @@ public class User extends Auditable {
         this.roles.clear();
         roles.forEach(this::addRole);
     }
+
+    public void removeRole(Role role) {
+        roles.remove(role);
+        role.getUsers().remove(this);
+    }
 }

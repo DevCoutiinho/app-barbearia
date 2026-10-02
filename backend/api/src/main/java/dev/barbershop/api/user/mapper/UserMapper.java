@@ -15,6 +15,6 @@ public interface UserMapper {
     UserAdmDTO toAdmDTO(User user);
 
     default RoleName map(Role role) {
-        return role.getName();
+        return RoleName.valueOf(role.getName());
     }
 }

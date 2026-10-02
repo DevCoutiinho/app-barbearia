@@ -1,6 +1,5 @@
 package dev.barbershop.api.auth.authorization.entity;
 
-import dev.barbershop.api.auth.authorization.enums.RoleName;
 import dev.barbershop.api.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,9 +24,8 @@ public class Role {
     @EqualsAndHashCode.Include
     private UUID id;
 
-    @Enumerated(EnumType.STRING)
     @Column(unique = true, nullable = false, length = 50)
-    private RoleName name;
+    private String name;
 
     private String description;
 
@@ -47,5 +45,22 @@ public class Role {
     public void addUser(User user) {
         Objects.requireNonNull(user);
         users.add(user);
+    }
+
+    public void addPermission(Permission permission) {
+        Objects.requireNonNull(permission);
+        permissions.add(permission);
+        permission.getRoles().add(this);
+    }
+
+    public void removePermission(Permission permission) {
+        permissions.remove(permission);
+        permission.getRoles().remove(this);
+    }
+
+    public void removeAllPermissions() {
+        for (Permission permission : new HashSet<>(permissions)) {
+            removePermission(permission);
+        }
     }
 }
