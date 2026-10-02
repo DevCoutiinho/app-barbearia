@@ -26,13 +26,38 @@ const { value: password } = useField<string>('password');
 
 const onSubmit = handleSubmit(async (values) => {
     try {
+        // Ativa o estado de carregamento do botão.
         isLoading.value = true;
-        await authService.login(values);
+
+        // Faz o login no backend e guarda a resposta.
+        const response = await authService.login(values);
+
+        // Busca o token com segurança.
+        // Se data não existir, token ficará undefined.
+        const token = response.data?.[0]?.accessToken;
+
+        // Impede que o fluxo continue sem um token válido.
+        if (!token) {
+            throw new Error('Token de acesso não recebido.');
+        }
+
+        // Salva o JWT no navegador.
+        localStorage.setItem('accessToken', token);
+
+        // Exibe mensagem de sucesso.
         toast.success('Login realizado com sucesso!');
+
+        // Redireciona após o login.
         router.push({ path: '/', replace: true });
+
     } catch (error) {
-        handleApiError(error, setFieldError, 'Erro ao fazer login. Verifique suas credenciais.');
+        handleApiError(
+            error,
+            setFieldError,
+            'Erro ao fazer login. Verifique suas credenciais.'
+        );
     } finally {
+        // Encerra o carregamento.
         isLoading.value = false;
     }
 });
@@ -40,7 +65,23 @@ const onSubmit = handleSubmit(async (values) => {
 const handleGoogleSuccess = async (response: any) => {
     try {
         isLoading.value = true;
-        await authService.loginGoogle({ idToken: response.credential });
+        // Faz login usando o token retornado pelo Google.
+        const loginResponse = await authService.loginGoogle({
+        idToken: response.credential
+        });
+
+        // Usa optional chaining também em "data".
+        // Assim o TypeScript não reclama caso data seja undefined.
+        const token = loginResponse.data?.[0]?.accessToken;
+
+        // Garante que realmente recebemos um token do backend.
+        if (!token) {
+        throw new Error('Token de acesso não recebido.');
+        }
+
+        // Salva o JWT no navegador.
+        // Depois o api.ts reutiliza esse token automaticamente.
+        localStorage.setItem('accessToken', token);
         toast.success('Login com Google realizado com sucesso!');
         router.push('/');
     } catch (error) {
