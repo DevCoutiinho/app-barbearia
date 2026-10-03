@@ -48,4 +48,10 @@ public class Role {
         Objects.requireNonNull(user);
         users.add(user);
     }
+
+    public void removeUser(User user){
+        Objects.requireNonNull(user);
+
+        users.remove(user);
+    }
 }

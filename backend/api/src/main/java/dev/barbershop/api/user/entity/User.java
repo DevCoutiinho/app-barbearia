@@ -53,7 +53,7 @@ public class User extends Auditable {
 
     @Column(nullable = false)
     @Builder.Default
-    private Boolean active = Boolean.TRUE;
+    private boolean active = true;
 
     @OneToMany(mappedBy = "user")
     @Builder.Default
@@ -84,11 +84,28 @@ public class User extends Auditable {
         role.addUser(this);
     }
 
+    public void removeRole(Role role) {
+        Objects.requireNonNull(role);
+
+        if (roles.remove(role)) {
+            role.removeUser(this);
+        }
+    }
+
+    public void replaceRoles(Set<Role> roles) {
+        this.roles.clear();
+        roles.forEach(this::addRole);
+    }
+
     public void addClient(Client client) {
         this.clientProfile = Objects.requireNonNull(client);
     }
 
-    public void addBarber(Barber barber){
+    public void addBarber(Barber barber) {
         this.barberProfile = Objects.requireNonNull(barber);
+    }
+
+    public void changeStatusAccount() {
+        this.active = !this.active;
     }
 }

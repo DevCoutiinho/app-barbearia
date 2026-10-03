@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -68,6 +69,11 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         )
                         .permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/admin/users/**").hasAuthority("USER_READ")
+                        .requestMatchers(HttpMethod.PUT, "/admin/users/**").hasAuthority("USER_UPDATE")
+                        .requestMatchers(HttpMethod.DELETE, "/admin/users/**").hasAuthority("USER_DELETE")
+
                         .anyRequest().authenticated()
                 )
                 .cors(cors -> cors
