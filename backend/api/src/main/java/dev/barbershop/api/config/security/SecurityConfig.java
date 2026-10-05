@@ -74,6 +74,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/admin/users/**").hasAuthority("USER_UPDATE")
                         .requestMatchers(HttpMethod.DELETE, "/admin/users/**").hasAuthority("USER_DELETE")
 
+                        .requestMatchers(HttpMethod.GET, "/admin/permissions/**").hasAuthority("PERMISSION_READ")
+                        .requestMatchers(HttpMethod.POST, "/admin/permissions/**").hasAuthority("PERMISSION_CREATE")
+                        .requestMatchers(HttpMethod.PUT, "/admin/permissions/**").hasAuthority("PERMISSION_UPDATE")
+                        .requestMatchers(HttpMethod.DELETE, "/admin/permissions/**").hasAuthority("PERMISSION_DELETE")
+
                         .anyRequest().authenticated()
                 )
                 .cors(cors -> cors

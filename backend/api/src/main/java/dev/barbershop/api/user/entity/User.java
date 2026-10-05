@@ -92,11 +92,6 @@ public class User extends Auditable {
         }
     }
 
-    public void replaceRoles(Set<Role> roles) {
-        this.roles.clear();
-        roles.forEach(this::addRole);
-    }
-
     public void addClient(Client client) {
         this.clientProfile = Objects.requireNonNull(client);
     }

@@ -54,4 +54,23 @@ public class Role {
 
         users.remove(user);
     }
+
+    public void addPermission(Permission permission){
+        Objects.requireNonNull(permission);
+
+        permissions.add(permission);
+        permission.addRole(this);
+    }
+
+    public void removePermission(Permission permission){
+        Objects.requireNonNull(permission);
+
+        if (permissions.remove(permission)) {
+            permission.removeRole(this);
+        }
+    }
+
+    public void changeDescription(String newDescription){
+        this.description = newDescription;
+    }
 }

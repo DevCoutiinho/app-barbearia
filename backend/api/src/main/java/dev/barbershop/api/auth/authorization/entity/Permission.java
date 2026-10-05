@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -33,5 +34,15 @@ public class Permission {
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
+    public void addRole(Role role) {
+        Objects.requireNonNull(role);
 
+        roles.add(role);
+    }
+
+    public void removeRole(Role role) {
+        Objects.requireNonNull(role);
+
+        roles.remove(role);
+    }
 }
