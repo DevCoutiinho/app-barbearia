@@ -68,8 +68,8 @@ const navigation = computed(() => {
         { label: 'Dashboard', icon: LayoutDashboard, target: '#dashboard-content' },
       ] },
       { title: 'Administração', items: [
-        { label: 'Roles', icon: ShieldCheck, target: '' },
-        { label: 'Permissões', icon: KeyRound, target: '' },
+        { label: 'Roles', icon: ShieldCheck, target: '/roles' },
+        { label: 'Permissões', icon: KeyRound, target: '/permissoes' },
         { label: 'Usuários', icon: Users, target: '' },
         { label: 'Estoque', icon: Package, target: '' },
         { label: 'Serviços', icon: Scissors, target: '#servicos' },
@@ -229,7 +229,10 @@ function exportAppointments() {
         <div v-for="group in navigation" :key="group.title" class="mt-[18px]">
           <p v-if="group.title" class="mb-1 px-[11px] text-[11px] leading-4 font-medium text-[#74747f]">{{ group.title }}</p>
           <template v-for="item in group.items" :key="item.label">
-            <a v-if="item.target" :href="item.target" class="nav-item" :class="['Dashboard', 'Início'].includes(item.label) ? 'bg-ink font-semibold text-white' : 'text-[#303039] hover:bg-paper'" :aria-current="['Dashboard', 'Início'].includes(item.label) ? 'page' : undefined" @click="sidebarOpen = false">
+            <RouterLink v-if="item.target.startsWith('/')" :to="item.target" class="nav-item text-[#303039] hover:bg-paper" @click="sidebarOpen = false">
+              <component :is="item.icon" class="size-[17px] shrink-0 text-[#74747f]" :stroke-width="1.7" aria-hidden="true" />{{ item.label }}
+            </RouterLink>
+            <a v-else-if="item.target" :href="item.target" class="nav-item" :class="['Dashboard', 'Início'].includes(item.label) ? 'bg-ink font-semibold text-white' : 'text-[#303039] hover:bg-paper'" :aria-current="['Dashboard', 'Início'].includes(item.label) ? 'page' : undefined" @click="sidebarOpen = false">
               <component :is="item.icon" class="size-[17px] shrink-0" :class="['Dashboard', 'Início'].includes(item.label) ? 'text-[#a67039]' : 'text-[#74747f]'" :stroke-width="1.7" aria-hidden="true" />{{ item.label }}
             </a>
             <button v-else type="button" class="nav-item w-full text-[#303039] hover:bg-paper" :title="`${item.label} ainda não está disponível`" @click="unavailable(item.label)">
