@@ -1,6 +1,6 @@
 import api from './api'
 import type { ApiResponse } from '../types/api'
-import type { Role } from '../types/role'
+import type { Role, RoleCreate, RoleUpdate } from '../types/role'
 
 const roleService = {
   async list(): Promise<Role[]> {
@@ -14,7 +14,7 @@ const roleService = {
     return roles
   },
 
-  async create(payload: Pick<Role, 'name' | 'description'>): Promise<Role> {
+  async create(payload: RoleCreate): Promise<Role> {
     const response = await api.post<ApiResponse<Role[]>>('/admin/roles', payload)
     const role = response.data.data?.[0]
 
@@ -25,8 +25,12 @@ const roleService = {
     return role
   },
 
-  async update(id: string, payload: Pick<Role, 'name' | 'description'>): Promise<Role> {
-    const response = await api.put<ApiResponse<Role[]>>(`/admin/roles/${encodeURIComponent(id)}`, payload)
+  async update(id: string, payload: RoleUpdate): Promise<Role> {
+    const response = await api.put<ApiResponse<Role[]>>(
+      `/admin/roles/${encodeURIComponent(id)}`,
+      payload
+    )
+
     const role = response.data.data?.[0]
 
     if (!role) {
