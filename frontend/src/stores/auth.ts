@@ -55,7 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
   function applyTokenToSession(token: string, persist: boolean) {
     const decodedUser = jwtDecode<AuthUser>(token)
     
-    console.log(JSON.stringify(decodedUser));
+    // console.log(JSON.stringify(decodedUser));
     
 
     if (persist) {
