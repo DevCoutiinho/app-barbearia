@@ -56,10 +56,12 @@ export function setupAuthInterceptors(auth: Pick<ReturnType<typeof useAuthStore>
             try {
                 await auth.refresh();
                 const newToken = auth.accessToken;
+                console.log("Novo token", newToken);
                 processQueue(null, newToken!);
                 originalRequest.headers.Authorization = `Bearer ${newToken}`;
                 return api(originalRequest);
             } catch (err) {
+                console.log("Erro no refresh", err);
                 processQueue(err, null);
                 return Promise.reject(err);
             } finally {

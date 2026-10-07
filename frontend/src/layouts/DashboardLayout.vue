@@ -164,7 +164,7 @@ async function logout() {
         </div>
       </nav>
       <div class="shrink-0 border-t border-line px-4 pt-[18px] pb-3">
-        <div class="flex items-center gap-2.5"><span class="avatar">{{ userInitials }}</span><div class="min-w-0"><p class="truncate text-[13px] leading-[18px] font-semibold">{{ auth.user?.name ?? 'Barbearia Ferro' }}</p><p class="text-[11px] text-[#74747f]">{{ auth.user ? roleLabel : 'Demonstração' }}</p></div></div>
+        <div class="flex items-center gap-2.5"><span class="avatar">{{ userInitials }}</span><div class="min-w-0"><p class="truncate text-[13px] leading-[18px] font-semibold">{{ auth.user?.name}}</p><p class="text-[11px] text-[#74747f]">{{ auth.user ? roleLabel : '' }}</p></div></div>
         <button v-if="auth.isAuthenticated" type="button" class="mt-3 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-xs hover:bg-paper" @click="logout"><LogOut class="size-4 text-[#74747f]" aria-hidden="true" />Sair</button>
         <RouterLink v-else to="/" class="mt-3 flex items-center gap-3 rounded-lg px-2 py-2 text-xs hover:bg-paper"><LogOut class="size-4 text-[#74747f]" aria-hidden="true" />Voltar ao site</RouterLink>
       </div>
@@ -178,7 +178,6 @@ async function logout() {
           <input v-model="search" type="search" placeholder="Buscar cliente, agendamento ou serviço" class="w-full min-w-0 bg-transparent text-[13px] text-ink outline-none placeholder:text-[#74747f]" />
         </label>
         <div class="flex shrink-0 items-center gap-2 sm:gap-3">
-          <span class="hidden items-center gap-1.5 rounded-full border border-[#e7d3ba] bg-[#f5ede3] px-3 py-1.5 text-[11px] font-medium text-[#945d28] sm:inline-flex"><span class="size-1.5 rounded-full bg-[#a67039]"></span>Demonstração</span>
           <button type="button" class="icon-button hidden size-9 sm:flex" aria-label="Notificações" @click="unavailable('Notificações')"><Bell class="size-[18px]" :stroke-width="1.6" /></button>
           <span class="avatar" :aria-label="auth.user?.name ?? 'Barbearia Ferro'">{{ userInitials }}</span>
         </div>

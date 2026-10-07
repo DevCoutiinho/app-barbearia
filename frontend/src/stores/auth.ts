@@ -37,21 +37,6 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
   }
 
-  function scheduleTokenExpiration() {
-    clearTimeout(expirationTimer)
-    
-    if (!user.value) return
-
-    const timeUntilExpiration = user.value.exp * 1000 - Date.now()
-    
-    if (timeUntilExpiration <= 0) {
-      logout()
-      return
-    }
-
-    expirationTimer = setTimeout(scheduleTokenExpiration, Math.min(timeUntilExpiration, MAX_TIMEOUT))
-  }
-
   function applyTokenToSession(token: string, persist: boolean) {
     const decodedUser = jwtDecode<AuthUser>(token)
     
@@ -64,7 +49,6 @@ export const useAuthStore = defineStore('auth', () => {
 
     accessToken.value = token
     user.value = decodedUser
-    scheduleTokenExpiration()
   }
 
   function handleLoginSuccess(response: ApiResponse<LoginResponse[]>) {
@@ -130,6 +114,7 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       clearSessionState()
       localStorage.removeItem(SESSION_KEY)
+      window.location.replace('/')
     }
   }
 
