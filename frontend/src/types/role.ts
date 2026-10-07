@@ -10,14 +10,3 @@ export interface Role {
   description: string | null
   permissions: Permission[]
 }
-
-export interface RoleCreate {
-  name: string
-  description: string
-  permissionIds: string[]
-}
-
-export interface RoleUpdate {
-  description: string
-  permissionIds: string[]
-}

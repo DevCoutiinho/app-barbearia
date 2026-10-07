@@ -20,7 +20,7 @@ const router = createRouter({
         {
             path: '/permissoes',
             name: 'permissoes',
-            component: () => import('../views/Permissoes.vue')
+            component: () => import('../views/Permissions.vue')
         },
         {
             path: "/",

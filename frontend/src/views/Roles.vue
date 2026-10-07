@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { AxiosError } from 'axios'
+import { useForm } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
+import { createRoleSchema, updateRoleSchema } from '../schemas/role.schema'
 import { toast } from 'vue-sonner'
-import { RouterLink } from 'vue-router'
+import DashboardLayout from '../layouts/DashboardLayout.vue'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal.vue'
+import { handleApiError } from '../utils/errorHandler'
 import {
-  ArrowLeft,
   KeyRound,
   Pencil,
   Plus,
@@ -18,15 +21,15 @@ import {
 import roleService from '../services/roleService'
 import permissionService from '../services/permissionService'
 
-import type { ApiResponse } from '../types/api'
 import type {
   Permission,
   Role,
-  RoleCreate,
-  RoleUpdate,
 } from '../types/role'
 
 const ROLE_NAMES = ['USER', 'ADMIN', 'BARBER']
+
+const createSchema = toTypedSchema(createRoleSchema);
+const updateSchema = toTypedSchema(updateRoleSchema);
 
 const roles = ref<Role[]>([])
 const permissions = ref<Permission[]>([])
@@ -37,18 +40,28 @@ const loading = ref(false)
 const hasLoaded = ref(false)
 const saving = ref(false)
 const deletingRoleId = ref<string | null>(null)
+const roleToDelete = ref<Role | null>(null)
 
 const error = ref('')
-const formError = ref('')
 
 const modalOpen = ref(false)
 const editing = ref<Role | null>(null)
 
-const form = ref({
-  name: '',
-  description: '',
-  permissionIds: [] as string[],
-})
+// Computed schema baseado no estado de edição
+const validationSchema = computed(() => editing.value ? updateSchema : createSchema);
+
+const { handleSubmit, errors, resetForm, defineField, setFieldError } = useForm({
+  validationSchema,
+  initialValues: {
+    name: '',
+    description: '',
+    permissionIds: [] as string[],
+  }
+});
+
+const [name, nameProps] = defineField('name');
+const [description, descriptionProps] = defineField('description');
+const [permissionIds] = defineField('permissionIds');
 
 const filteredRoles = computed(() => {
   const query = search.value.trim().toLocaleLowerCase()
@@ -60,61 +73,29 @@ const filteredRoles = computed(() => {
   )
 })
 
-function getErrorMessage(cause: unknown, fallback: string): string {
-  if (cause instanceof AxiosError) {
-    const responseBody = cause.response?.data as ApiResponse | undefined
-
-    if (responseBody?.message) {
-      return responseBody.message
-    }
-
-    if (cause.response?.status === 401) {
-      return 'Sua sessão expirou ou você não está autenticado.'
-    }
-
-    if (cause.response?.status === 403) {
-      return 'Você não tem permissão para executar esta ação.'
-    }
-
-    if (!cause.response) {
-      return 'Não foi possível conectar ao servidor. Verifique sua conexão.'
-    }
-  }
-
-  if (cause instanceof Error && cause.message) {
-    return cause.message
-  }
-
-  return fallback
-}
-
 function isSystemRole(role: Role): boolean {
   return ROLE_NAMES.includes(role.name.toUpperCase())
 }
 
 function isPermissionSelected(permissionId: string): boolean {
-  return form.value.permissionIds.includes(permissionId)
+  return permissionIds.value?.includes(permissionId) || false
 }
 
 function togglePermission(permissionId: string) {
-  if (form.value.permissionIds.includes(permissionId)) {
-    form.value.permissionIds = form.value.permissionIds.filter(
-      id => id !== permissionId,
-    )
+  const current = permissionIds.value || []
+  if (current.includes(permissionId)) {
+    permissionIds.value = current.filter(id => id !== permissionId)
   } else {
-    form.value.permissionIds = [
-      ...form.value.permissionIds,
-      permissionId,
-    ]
+    permissionIds.value = [...current, permissionId]
   }
 }
 
 function selectAllPermissions() {
-  form.value.permissionIds = permissions.value.map(permission => permission.id)
+  permissionIds.value = permissions.value.map(permission => permission.id)
 }
 
 function clearPermissions() {
-  form.value.permissionIds = []
+  permissionIds.value = []
 }
 
 async function loadData() {
@@ -124,18 +105,16 @@ async function loadData() {
   error.value = ''
 
   try {
-    const [loadedRoles, loadedPermissions] = await Promise.all([
+    const [rolesResponse, permissionsResponse] = await Promise.all([
       roleService.list(),
       permissionService.list(),
     ])
 
-    roles.value = loadedRoles
-    permissions.value = loadedPermissions
+    roles.value = rolesResponse.data || []
+    permissions.value = permissionsResponse.data || []
   } catch (cause) {
-    error.value = getErrorMessage(
-      cause,
-      'Não foi possível carregar as roles e permissões.',
-    )
+    error.value = 'Não foi possível carregar as roles e permissões.'
+    handleApiError(cause, undefined, error.value)
   } finally {
     loading.value = false
     hasLoaded.value = true
@@ -145,26 +124,28 @@ async function loadData() {
 function openCreate() {
   editing.value = null
 
-  form.value = {
-    name: '',
-    description: '',
-    permissionIds: [],
-  }
+  resetForm({
+    values: {
+      name: '',
+      description: '',
+      permissionIds: [],
+    }
+  })
 
-  formError.value = ''
   modalOpen.value = true
 }
 
 function openEdit(role: Role) {
   editing.value = role
 
-  form.value = {
-    name: role.name,
-    description: role.description ?? '',
-    permissionIds: role.permissions.map(permission => permission.id),
-  }
+  resetForm({
+    values: {
+      name: role.name,
+      description: role.description ?? '',
+      permissionIds: role.permissions.map(permission => permission.id),
+    }
+  })
 
-  formError.value = ''
   modalOpen.value = true
 }
 
@@ -174,67 +155,21 @@ function closeModal() {
   modalOpen.value = false
 }
 
-function validateForm(): boolean {
-  const description = form.value.description.trim()
-
-  if (!form.value.name) {
-    formError.value = 'Selecione o nome da role.'
-    return false
-  }
-
-  if (description.length > 255) {
-    formError.value = 'A descrição deve ter no máximo 255 caracteres.'
-    return false
-  }
-
-  if (form.value.permissionIds.length === 0) {
-    formError.value = 'Selecione pelo menos uma permissão.'
-    return false
-  }
-
-  formError.value = ''
-
-  return true
-}
-
-async function saveRole() {
-  if (saving.value || !validateForm()) return
+const saveRole = handleSubmit(async (values) => {
+  if (saving.value) return
 
   const currentRole = editing.value
 
   saving.value = true
-  formError.value = ''
 
   try {
-    let savedRole: Role
-
     if (currentRole) {
-      const payload: RoleUpdate = {
-        description: form.value.description.trim(),
-        permissionIds: form.value.permissionIds,
-      }
-
-      savedRole = await roleService.update(
-        currentRole.id,
-        payload,
-      )
+      await roleService.update(currentRole.id, values as any)
     } else {
-      const payload: RoleCreate = {
-        name: form.value.name,
-        description: form.value.description.trim(),
-        permissionIds: form.value.permissionIds,
-      }
-
-      savedRole = await roleService.create(payload)
+      await roleService.create(values as any)
     }
 
-    if (currentRole) {
-      roles.value = roles.value.map(role =>
-        role.id === savedRole.id ? savedRole : role,
-      )
-    } else {
-      roles.value = [...roles.value, savedRole]
-    }
+    await loadData()
 
     error.value = ''
     modalOpen.value = false
@@ -245,43 +180,32 @@ async function saveRole() {
         : 'Role criada com sucesso.',
     )
   } catch (cause) {
-    formError.value = getErrorMessage(
-      cause,
-      'Não foi possível salvar a role.',
-    )
+    handleApiError(cause, setFieldError, 'Não foi possível salvar a role.')
   } finally {
     saving.value = false
   }
+});
+
+async function confirmRemoveRole(role: Role) {
+  if (deletingRoleId.value || isSystemRole(role)) return
+  roleToDelete.value = role
 }
 
-async function removeRole(role: Role) {
-  if (deletingRoleId.value || isSystemRole(role)) return
-
-  const confirmed = window.confirm(
-    `A role "${role.name}" só pode ser excluída se não estiver atribuída a usuários. Deseja continuar?`,
-  )
-
-  if (!confirmed) return
+async function removeRole() {
+  const role = roleToDelete.value
+  if (!role || deletingRoleId.value || isSystemRole(role)) return
 
   deletingRoleId.value = role.id
   error.value = ''
 
   try {
     await roleService.remove(role.id)
-
-    roles.value = roles.value.filter(
-      item => item.id !== role.id,
-    )
+    await loadData()
 
     toast.success('Role excluída com sucesso.')
+    roleToDelete.value = null
   } catch (cause) {
-    const message = getErrorMessage(
-      cause,
-      'Não foi possível excluir a role.',
-    )
-
-    error.value = message
-    toast.error(message)
+    handleApiError(cause, undefined, 'Não foi possível excluir a role.')
   } finally {
     deletingRoleId.value = null
   }
@@ -291,465 +215,474 @@ onMounted(loadData)
 </script>
 
 <template>
-  <main class="min-h-screen bg-paper text-ink">
-    <div class="mx-auto max-w-[1200px] px-4 py-7 sm:px-[26px] lg:py-9">
+  <DashboardLayout>
+    <main class="bg-paper text-ink pb-8">
+      <div class="mx-auto max-w-[1200px] px-4 py-7 sm:px-[26px] lg:py-9">
 
-      <RouterLink
-        to="/dashboard"
-        class="mb-5 inline-flex items-center gap-2 text-xs font-medium text-[#74747f] hover:text-ink"
-      >
-        <ArrowLeft class="size-4" aria-hidden="true" />
-        Voltar ao dashboard
-      </RouterLink>
+        <header class="mb-7 flex flex-wrap items-end justify-between gap-5">
+          <div>
+            <p class="mb-2 text-[11px] font-semibold tracking-[1.5px] text-[#a67039]">
+              ADMINISTRAÇÃO
+            </p>
 
-      <header class="mb-7 flex flex-wrap items-end justify-between gap-5">
-        <div>
-          <p class="mb-2 text-[11px] font-semibold tracking-[1.5px] text-[#a67039]">
-            ADMINISTRAÇÃO
-          </p>
+            <h1 class="text-[27px] leading-9 font-bold tracking-[-1px]">
+              Roles
+            </h1>
 
-          <h1 class="text-[27px] leading-9 font-bold tracking-[-1px]">
-            Roles
-          </h1>
-
-          <p class="mt-1 max-w-[610px] text-[14px] leading-[21px] text-[#74747f]">
-            Gerencie os papéis de acesso utilizados pelas pessoas no sistema.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          class="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-ink bg-ink px-4 text-[13px] font-semibold text-white hover:bg-ink-soft disabled:cursor-wait disabled:opacity-60"
-          :disabled="saving || Boolean(deletingRoleId)"
-          @click="openCreate"
-        >
-          <Plus class="size-4" aria-hidden="true" />
-          Nova Role
-        </button>
-      </header>
-
-      <section class="overflow-hidden rounded-2xl border border-line bg-white">
-
-        <div
-          class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-5"
-        >
-          <label
-            class="flex h-[38px] w-full max-w-[380px] items-center gap-2 rounded-xl border border-line bg-paper px-3"
-          >
-            <Search
-              class="size-4 shrink-0 text-[#74747f]"
-              aria-hidden="true"
-            />
-
-            <span class="sr-only">
-              Buscar roles pelo nome
-            </span>
-
-            <input
-              v-model="search"
-              type="search"
-              placeholder="Buscar role pelo nome"
-              class="w-full min-w-0 bg-transparent text-[13px] outline-none placeholder:text-[#74747f]"
-            />
-          </label>
+            <p class="mt-1 max-w-[610px] text-[14px] leading-[21px] text-[#74747f]">
+              Gerencie os papéis de acesso utilizados pelas pessoas no sistema.
+            </p>
+          </div>
 
           <button
             type="button"
-            class="inline-flex min-h-[38px] items-center justify-center gap-2 rounded-xl border border-line px-4 text-[13px] font-semibold transition-colors hover:bg-[#ededeb] disabled:cursor-wait disabled:opacity-60"
-            :disabled="loading"
-            @click="loadData"
+            class="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-ink bg-ink px-4 text-[13px] font-semibold text-white hover:bg-ink-soft disabled:cursor-wait disabled:opacity-60"
+            :disabled="saving || Boolean(deletingRoleId)"
+            @click="openCreate"
           >
-            <RefreshCw
-              class="size-4"
-              :class="{ 'animate-spin': loading }"
-              aria-hidden="true"
-            />
-            Atualizar
+            <Plus class="size-4" aria-hidden="true" />
+            Nova Role
           </button>
-        </div>
+        </header>
 
-        <p
-          v-if="error"
-          class="mx-4 mt-4 rounded-lg bg-red-50 px-4 py-3 text-[13px] text-red-800 sm:mx-5"
-          role="alert"
-        >
-          {{ error }}
+        <section class="overflow-hidden rounded-2xl border border-line bg-white">
 
-          <button
-            v-if="!loading"
-            type="button"
-            class="ml-2 font-semibold underline"
-            @click="loadData"
+          <div
+            class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-5"
           >
-            Tentar novamente
-          </button>
-        </p>
+            <label
+              class="flex h-[38px] w-full max-w-[380px] items-center gap-2 rounded-xl border border-line bg-paper px-3"
+            >
+              <Search
+                class="size-4 shrink-0 text-[#74747f]"
+                aria-hidden="true"
+              />
 
-        <p
-          v-if="loading && !hasLoaded"
-          class="px-5 py-14 text-center text-sm text-[#74747f]"
-          role="status"
-        >
-          Carregando roles...
-        </p>
-
-        <div
-          v-else-if="filteredRoles.length"
-          class="grid gap-4 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3"
-        >
-          <article
-            v-for="role in filteredRoles"
-            :key="role.id"
-            class="rounded-xl border border-line bg-white p-5 shadow-[0_2px_8px_#1a1a1c08]"
-          >
-            <div class="flex items-start justify-between gap-3">
-
-              <span
-                class="flex size-10 items-center justify-center rounded-xl bg-[#f5ede3] text-[#a67039]"
-              >
-                <ShieldCheck
-                  class="size-[19px]"
-                  :stroke-width="1.7"
-                  aria-hidden="true"
-                />
+              <span class="sr-only">
+                Buscar roles pelo nome
               </span>
 
-              <div class="flex items-center gap-1">
+              <input
+                v-model="search"
+                type="search"
+                placeholder="Buscar role pelo nome"
+                class="w-full min-w-0 bg-transparent text-[13px] outline-none placeholder:text-[#74747f]"
+              />
+            </label>
 
-                <button
-                  type="button"
-                  class="inline-flex size-[30px] items-center justify-center rounded-lg border border-line bg-white text-[#55555e] hover:bg-paper disabled:opacity-50"
-                  :aria-label="`Editar ${role.name}`"
-                  :disabled="Boolean(deletingRoleId)"
-                  @click="openEdit(role)"
-                >
-                  <Pencil
-                    class="size-4"
-                    aria-hidden="true"
-                  />
-                </button>
+            <button
+              type="button"
+              class="inline-flex min-h-[38px] items-center justify-center gap-2 rounded-xl border border-line px-4 text-[13px] font-semibold transition-colors hover:bg-[#ededeb] disabled:cursor-wait disabled:opacity-60"
+              :disabled="loading"
+              @click="loadData"
+            >
+              <RefreshCw
+                class="size-4"
+                :class="{ 'animate-spin': loading }"
+                aria-hidden="true"
+              />
+              Atualizar
+            </button>
+          </div>
 
-                <button
-                  type="button"
-                  class="inline-flex size-[30px] items-center justify-center rounded-lg border border-line bg-white text-red-700 hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40"
-                  :aria-label="`Excluir ${role.name}`"
-                  :title="isSystemRole(role)
-                    ? 'Roles do sistema não podem ser excluídas'
-                    : 'Excluir role'"
-                  :disabled="isSystemRole(role) || Boolean(deletingRoleId)"
-                  @click="removeRole(role)"
-                >
-                  <Trash2
-                    class="size-4"
-                    aria-hidden="true"
-                  />
-                </button>
+          <p
+            v-if="error"
+            class="mx-4 mt-4 rounded-lg bg-red-50 px-4 py-3 text-[13px] text-red-800 sm:mx-5"
+            role="alert"
+          >
+            {{ error }}
 
-              </div>
-            </div>
+            <button
+              v-if="!loading"
+              type="button"
+              class="ml-2 font-semibold underline"
+              @click="loadData"
+            >
+              Tentar novamente
+            </button>
+          </p>
 
-            <div class="mt-4">
+          <p
+            v-if="loading && !hasLoaded"
+            class="px-5 py-14 text-center text-sm text-[#74747f]"
+            role="status"
+          >
+            Carregando roles...
+          </p>
 
-              <div class="flex flex-wrap items-center gap-2">
-
-                <h2 class="text-[15px] font-semibold">
-                  {{ role.name }}
-                </h2>
+          <div
+            v-else-if="filteredRoles.length"
+            class="grid gap-4 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3"
+          >
+            <article
+              v-for="role in filteredRoles"
+              :key="role.id"
+              class="rounded-xl border border-line bg-white p-5 shadow-[0_2px_8px_#1a1a1c08]"
+            >
+              <div class="flex items-start justify-between gap-3">
 
                 <span
-                  v-if="isSystemRole(role)"
-                  class="rounded-full bg-paper px-2 py-0.5 text-[10px] font-semibold text-[#74747f]"
+                  class="flex size-10 items-center justify-center rounded-xl bg-[#f5ede3] text-[#a67039]"
                 >
-                  Sistema
+                  <ShieldCheck
+                    class="size-[19px]"
+                    :stroke-width="1.7"
+                    aria-hidden="true"
+                  />
                 </span>
+
+                <div class="flex items-center gap-1">
+
+                  <button
+                    type="button"
+                    class="inline-flex size-[30px] items-center justify-center rounded-lg border border-line bg-white text-[#55555e] hover:bg-paper disabled:opacity-50"
+                    :aria-label="`Editar ${role.name}`"
+                    :disabled="Boolean(deletingRoleId)"
+                    @click="openEdit(role)"
+                  >
+                    <Pencil
+                      class="size-4"
+                      aria-hidden="true"
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    class="inline-flex size-[30px] items-center justify-center rounded-lg border border-line bg-white text-red-700 hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40"
+                    :aria-label="`Excluir ${role.name}`"
+                    :title="isSystemRole(role)
+                      ? 'Roles do sistema não podem ser excluídas'
+                      : 'Excluir role'"
+                    :disabled="isSystemRole(role) || Boolean(deletingRoleId)"
+                    @click="confirmRemoveRole(role)"
+                  >
+                    <Trash2
+                      class="size-4"
+                      aria-hidden="true"
+                    />
+                  </button>
+
+                </div>
+              </div>
+
+              <div class="mt-4">
+
+                <div class="flex flex-wrap items-center gap-2">
+
+                  <h2 class="text-[15px] font-semibold">
+                    {{ role.name }}
+                  </h2>
+
+                  <span
+                    v-if="isSystemRole(role)"
+                    class="rounded-full bg-paper px-2 py-0.5 text-[10px] font-semibold text-[#74747f]"
+                  >
+                    Sistema
+                  </span>
+
+                </div>
+
+                <p class="mt-1 min-h-10 text-[13px] leading-5 text-[#74747f]">
+                  {{ role.description || 'Nenhuma descrição informada.' }}
+                </p>
 
               </div>
 
-              <p class="mt-1 min-h-10 text-[13px] leading-5 text-[#74747f]">
-                {{ role.description || 'Nenhuma descrição informada.' }}
+              <footer
+                class="mt-4 border-t border-line pt-3 text-xs text-[#74747f]"
+              >
+                <span class="inline-flex items-center gap-1.5">
+                  <KeyRound
+                    class="size-3.5"
+                    aria-hidden="true"
+                  />
+
+                  {{ role.permissions.length }} permissões
+                </span>
+
+                <div
+                  v-if="role.permissions.length"
+                  class="mt-3 flex flex-wrap gap-1.5"
+                >
+                  <span
+                    v-for="permission in role.permissions"
+                    :key="permission.id"
+                    class="rounded-full bg-paper px-2 py-1 text-[10px] font-medium text-[#55555e]"
+                  >
+                    {{ permission.name }}
+                  </span>
+                </div>
+              </footer>
+
+            </article>
+          </div>
+
+          <div
+            v-else-if="hasLoaded && !error"
+            class="px-5 py-14 text-center"
+          >
+            <p class="text-sm font-semibold">
+              Nenhuma role encontrada.
+            </p>
+
+            <p
+              v-if="search"
+              class="mt-1 text-[13px] text-[#74747f]"
+            >
+              Tente ajustar os termos da busca.
+            </p>
+
+            <button
+              v-else
+              type="button"
+              class="mt-4 inline-flex items-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-ink-soft"
+              @click="openCreate"
+            >
+              <Plus class="size-4" aria-hidden="true" />
+              Criar primeira Role
+            </button>
+          </div>
+
+        </section>
+      </div>
+
+      <!-- MODAL -->
+      <div
+        v-if="modalOpen"
+        class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/40 p-4"
+        @click.self="closeModal"
+      >
+        <section
+          class="my-auto w-full max-w-[560px] rounded-2xl border border-line bg-white p-5 shadow-2xl sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="role-form-title"
+        >
+
+          <header class="mb-5 flex items-start justify-between gap-4">
+
+            <div>
+              <p class="mb-1 text-[11px] font-semibold tracking-[1.3px] text-[#a67039]">
+                ACESSOS DA EQUIPE
+              </p>
+
+              <h2
+                id="role-form-title"
+                class="text-xl font-bold"
+              >
+                {{ editing ? 'Editar Role' : 'Nova Role' }}
+              </h2>
+
+              <p
+                v-if="editing && isSystemRole(editing)"
+                class="mt-1 text-xs text-[#74747f]"
+              >
+                O nome desta Role do sistema não pode ser alterado.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              class="inline-flex size-[30px] items-center justify-center rounded-lg border border-line text-[#55555e] hover:bg-paper disabled:opacity-50"
+              aria-label="Fechar formulário"
+              :disabled="saving"
+              @click="closeModal"
+            >
+              <X class="size-4" aria-hidden="true" />
+            </button>
+
+          </header>
+
+          <form
+            class="space-y-5"
+            @submit.prevent="saveRole"
+            novalidate
+          >
+
+            <!-- NOME -->
+            <label class="block text-[13px] font-semibold">
+
+              Nome
+              <span class="text-red-700">*</span>
+
+              <select
+                v-model="name"
+                v-bind="nameProps"
+                :disabled="Boolean(editing) || saving"
+                class="mt-2 block h-10 w-full rounded-lg border bg-white px-3 text-sm font-normal outline-none focus:ring-2 disabled:bg-paper disabled:text-[#74747f]"
+                :class="errors?.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500/15' : 'border-line focus:border-[#a67039]'"
+              >
+                <option
+                  value=""
+                  disabled
+                >
+                  Selecione uma Role
+                </option>
+
+                <option
+                  v-for="roleName in ROLE_NAMES"
+                  :key="roleName"
+                  :value="roleName"
+                >
+                  {{ roleName }}
+                </option>
+              </select>
+              <span v-if="errors?.name" class="mt-1 block text-xs font-medium text-red-500">
+                  {{ errors.name }}
+              </span>
+            </label>
+
+            <!-- DESCRIÇÃO -->
+            <label class="block text-[13px] font-semibold">
+
+              Descrição
+
+              <textarea
+                v-model="description"
+                v-bind="descriptionProps"
+                rows="3"
+                maxlength="255"
+                placeholder="Descreva o papel de acesso"
+                :disabled="saving"
+                class="mt-2 block w-full resize-y rounded-lg border px-3 py-2.5 text-sm font-normal outline-none focus:ring-2 disabled:bg-paper"
+                :class="errors?.description ? 'border-red-500 focus:border-red-500 focus:ring-red-500/15' : 'border-line focus:border-[#a67039]'"
+              ></textarea>
+              <span v-if="errors?.description" class="mt-1 block text-xs font-medium text-red-500">
+                  {{ errors.description }}
+              </span>
+            </label>
+
+            <!-- PERMISSÕES -->
+            <div>
+
+              <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+
+                <div>
+                  <p class="text-[13px] font-semibold">
+                    Permissões
+                    <span class="text-red-700">*</span>
+                  </p>
+
+                  <p class="mt-0.5 text-[11px] text-[#74747f]">
+                    Selecione as permissões que esta Role poderá utilizar.
+                  </p>
+                </div>
+
+                <div class="flex gap-2">
+
+                  <button
+                    type="button"
+                    class="text-[11px] font-semibold text-[#a67039] hover:underline disabled:opacity-50"
+                    :disabled="saving || !permissions.length"
+                    @click="selectAllPermissions"
+                  >
+                    Selecionar todas
+                  </button>
+
+                  <button
+                    type="button"
+                    class="text-[11px] font-semibold text-[#74747f] hover:underline disabled:opacity-50"
+                    :disabled="saving || !(permissionIds?.length)"
+                    @click="clearPermissions"
+                  >
+                    Limpar
+                  </button>
+
+                </div>
+              </div>
+
+              <div
+                v-if="permissions.length"
+                class="max-h-[260px] overflow-y-auto rounded-xl border"
+                :class="errors?.permissionIds ? 'border-red-500' : 'border-line'"
+              >
+
+                <label
+                  v-for="permission in permissions"
+                  :key="permission.id"
+                  class="flex cursor-pointer items-start gap-3 border-b border-line px-3 py-3 last:border-b-0 hover:bg-paper"
+                >
+
+                  <input
+                    type="checkbox"
+                    :checked="isPermissionSelected(permission.id)"
+                    :disabled="saving"
+                    class="mt-0.5 size-4 accent-[#a67039]"
+                    @change="togglePermission(permission.id)"
+                  />
+
+                  <span class="min-w-0">
+                    <span class="block text-[12px] font-semibold">
+                      {{ permission.name }}
+                    </span>
+
+                    <span
+                      v-if="permission.description"
+                      class="mt-0.5 block text-[11px] leading-4 text-[#74747f]"
+                    >
+                      {{ permission.description }}
+                    </span>
+                  </span>
+
+                </label>
+
+              </div>
+
+              <p
+                v-else
+                class="rounded-lg border border-line px-3 py-4 text-center text-[12px] text-[#74747f]"
+              >
+                Nenhuma permissão disponível.
+              </p>
+
+              <span v-if="errors?.permissionIds" class="mt-1 block text-xs font-medium text-red-500">
+                  {{ errors.permissionIds }}
+              </span>
+
+              <p class="mt-2 text-[11px] text-[#74747f]">
+                {{ permissionIds?.length || 0 }} permissão(ões) selecionada(s)
               </p>
 
             </div>
 
-            <footer
-              class="mt-4 border-t border-line pt-3 text-xs text-[#74747f]"
-            >
-              <span class="inline-flex items-center gap-1.5">
-                <KeyRound
-                  class="size-3.5"
-                  aria-hidden="true"
-                />
+            <div class="flex justify-end gap-2 pt-2">
 
-                {{ role.permissions.length }} permissões
-              </span>
-
-              <div
-                v-if="role.permissions.length"
-                class="mt-3 flex flex-wrap gap-1.5"
+              <button
+                type="button"
+                class="inline-flex min-h-[38px] items-center justify-center rounded-xl border border-line px-4 text-[13px] font-semibold hover:bg-paper disabled:opacity-60"
+                :disabled="saving"
+                @click="closeModal"
               >
-                <span
-                  v-for="permission in role.permissions"
-                  :key="permission.id"
-                  class="rounded-full bg-paper px-2 py-1 text-[10px] font-medium text-[#55555e]"
-                >
-                  {{ permission.name }}
-                </span>
-              </div>
-            </footer>
+                Cancelar
+              </button>
 
-          </article>
-        </div>
-
-        <div
-          v-else-if="hasLoaded && !error"
-          class="px-5 py-14 text-center"
-        >
-          <p class="text-sm font-semibold">
-            Nenhuma role encontrada.
-          </p>
-
-          <p
-            v-if="search"
-            class="mt-1 text-[13px] text-[#74747f]"
-          >
-            Tente ajustar os termos da busca.
-          </p>
-
-          <button
-            v-else
-            type="button"
-            class="mt-4 inline-flex items-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-ink-soft"
-            @click="openCreate"
-          >
-            <Plus class="size-4" aria-hidden="true" />
-            Criar primeira Role
-          </button>
-        </div>
-
-      </section>
-    </div>
-
-    <!-- MODAL -->
-    <div
-      v-if="modalOpen"
-      class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/40 p-4"
-      @click.self="closeModal"
-    >
-      <section
-        class="my-auto w-full max-w-[560px] rounded-2xl border border-line bg-white p-5 shadow-2xl sm:p-6"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="role-form-title"
-      >
-
-        <header class="mb-5 flex items-start justify-between gap-4">
-
-          <div>
-            <p class="mb-1 text-[11px] font-semibold tracking-[1.3px] text-[#a67039]">
-              ACESSOS DA EQUIPE
-            </p>
-
-            <h2
-              id="role-form-title"
-              class="text-xl font-bold"
-            >
-              {{ editing ? 'Editar Role' : 'Nova Role' }}
-            </h2>
-
-            <p
-              v-if="editing && isSystemRole(editing)"
-              class="mt-1 text-xs text-[#74747f]"
-            >
-              O nome desta Role do sistema não pode ser alterado.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            class="inline-flex size-[30px] items-center justify-center rounded-lg border border-line text-[#55555e] hover:bg-paper disabled:opacity-50"
-            aria-label="Fechar formulário"
-            :disabled="saving"
-            @click="closeModal"
-          >
-            <X class="size-4" aria-hidden="true" />
-          </button>
-
-        </header>
-
-        <form
-          class="space-y-5"
-          @submit.prevent="saveRole"
-        >
-
-          <!-- NOME -->
-          <label class="block text-[13px] font-semibold">
-
-            Nome
-            <span class="text-red-700">*</span>
-
-            <select
-              v-model="form.name"
-              :disabled="Boolean(editing) || saving"
-              class="mt-2 block h-10 w-full rounded-lg border border-line bg-white px-3 text-sm font-normal outline-none focus:border-[#a67039] disabled:bg-paper disabled:text-[#74747f]"
-            >
-              <option
-                value=""
-                disabled
+              <button
+                type="submit"
+                class="inline-flex min-h-[38px] items-center justify-center rounded-lg bg-ink px-4 text-[13px] font-semibold text-white hover:bg-ink-soft disabled:cursor-wait disabled:opacity-60"
+                :disabled="saving"
               >
-                Selecione uma Role
-              </option>
-
-              <option
-                v-for="name in ROLE_NAMES"
-                :key="name"
-                :value="name"
-              >
-                {{ name }}
-              </option>
-            </select>
-
-          </label>
-
-          <!-- DESCRIÇÃO -->
-          <label class="block text-[13px] font-semibold">
-
-            Descrição
-
-            <textarea
-              v-model="form.description"
-              rows="3"
-              maxlength="255"
-              placeholder="Descreva o papel de acesso"
-              :disabled="saving"
-              class="mt-2 block w-full resize-y rounded-lg border border-line px-3 py-2.5 text-sm font-normal outline-none focus:border-[#a67039] disabled:bg-paper"
-            ></textarea>
-
-          </label>
-
-          <!-- PERMISSÕES -->
-          <div>
-
-            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-
-              <div>
-                <p class="text-[13px] font-semibold">
-                  Permissões
-                  <span class="text-red-700">*</span>
-                </p>
-
-                <p class="mt-0.5 text-[11px] text-[#74747f]">
-                  Selecione as permissões que esta Role poderá utilizar.
-                </p>
-              </div>
-
-              <div class="flex gap-2">
-
-                <button
-                  type="button"
-                  class="text-[11px] font-semibold text-[#a67039] hover:underline disabled:opacity-50"
-                  :disabled="saving || !permissions.length"
-                  @click="selectAllPermissions"
-                >
-                  Selecionar todas
-                </button>
-
-                <button
-                  type="button"
-                  class="text-[11px] font-semibold text-[#74747f] hover:underline disabled:opacity-50"
-                  :disabled="saving || !form.permissionIds.length"
-                  @click="clearPermissions"
-                >
-                  Limpar
-                </button>
-
-              </div>
-            </div>
-
-            <div
-              v-if="permissions.length"
-              class="max-h-[260px] overflow-y-auto rounded-xl border border-line"
-            >
-
-              <label
-                v-for="permission in permissions"
-                :key="permission.id"
-                class="flex cursor-pointer items-start gap-3 border-b border-line px-3 py-3 last:border-b-0 hover:bg-paper"
-              >
-
-                <input
-                  type="checkbox"
-                  :checked="isPermissionSelected(permission.id)"
-                  :disabled="saving"
-                  class="mt-0.5 size-4 accent-[#a67039]"
-                  @change="togglePermission(permission.id)"
-                />
-
-                <span class="min-w-0">
-                  <span class="block text-[12px] font-semibold">
-                    {{ permission.name }}
-                  </span>
-
-                  <span
-                    v-if="permission.description"
-                    class="mt-0.5 block text-[11px] leading-4 text-[#74747f]"
-                  >
-                    {{ permission.description }}
-                  </span>
-                </span>
-
-              </label>
+                {{ saving
+                  ? 'Salvando...'
+                  : editing
+                    ? 'Salvar alterações'
+                    : 'Criar Role'
+                }}
+              </button>
 
             </div>
 
-            <p
-              v-else
-              class="rounded-lg border border-line px-3 py-4 text-center text-[12px] text-[#74747f]"
-            >
-              Nenhuma permissão disponível.
-            </p>
+          </form>
+        </section>
+      </div>
 
-            <p class="mt-2 text-[11px] text-[#74747f]">
-              {{ form.permissionIds.length }} permissão(ões) selecionada(s)
-            </p>
-
-          </div>
-
-          <p
-            v-if="formError"
-            class="rounded-lg bg-red-50 px-3 py-2.5 text-[13px] text-red-800"
-            role="alert"
-          >
-            {{ formError }}
-          </p>
-
-          <div class="flex justify-end gap-2 pt-2">
-
-            <button
-              type="button"
-              class="inline-flex min-h-[38px] items-center justify-center rounded-xl border border-line px-4 text-[13px] font-semibold hover:bg-paper disabled:opacity-60"
-              :disabled="saving"
-              @click="closeModal"
-            >
-              Cancelar
-            </button>
-
-            <button
-              type="submit"
-              class="inline-flex min-h-[38px] items-center justify-center rounded-lg bg-ink px-4 text-[13px] font-semibold text-white hover:bg-ink-soft disabled:cursor-wait disabled:opacity-60"
-              :disabled="saving || !permissions.length"
-            >
-              {{ saving
-                ? 'Salvando...'
-                : editing
-                  ? 'Salvar alterações'
-                  : 'Criar Role'
-              }}
-            </button>
-
-          </div>
-
-        </form>
-      </section>
-    </div>
-  </main>
+      <ConfirmDeleteModal
+        :open="Boolean(roleToDelete)"
+        title="Excluir Role"
+        :description="`A role &quot;${roleToDelete?.name}&quot; só pode ser excluída se não estiver atribuída a nenhum usuário. Tem certeza que deseja continuar?`"
+        :loading="Boolean(deletingRoleId)"
+        @close="roleToDelete = null"
+        @confirm="removeRole"
+      />
+    </main>
+  </DashboardLayout>
 </template>
