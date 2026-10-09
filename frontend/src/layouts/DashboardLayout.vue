@@ -33,6 +33,9 @@ const navigation = computed(() => {
   const roles = auth.user?.roles || []
   const isAdmin = roles.includes('ADMIN')
   const isBarber = roles.includes('BARBEIRO') || roles.includes('BARBER')
+  const canReadUsers = auth.user?.permissions?.includes('USER_READ') ?? false
+  const usersItem = { label: 'Usuários', icon: Users, target: '/admin/users' }
+  const usersNavigation = canReadUsers ? [{ title: 'Administração', items: [usersItem] }] : []
 
   if (isAdmin) {
     return [
@@ -42,7 +45,7 @@ const navigation = computed(() => {
       { title: 'Administração', items: [
         { label: 'Roles', icon: ShieldCheck, target: '/roles' },
         { label: 'Permissões', icon: KeyRound, target: '/permissoes' },
-        { label: 'Usuários', icon: Users, target: '' },
+        ...(canReadUsers ? [usersItem] : []),
         { label: 'Estoque', icon: Package, target: '' },
         { label: 'Serviços', icon: Scissors, target: '/dashboard#servicos' },
         { label: 'Configurações', icon: Settings, target: '' },
@@ -66,6 +69,7 @@ const navigation = computed(() => {
         { label: 'Estoque', icon: Package, target: '' },
         { label: 'Histórico', icon: History, target: '' },
       ] },
+      ...usersNavigation,
       { title: 'Conta', items: [
         { label: 'Notificações', icon: Bell, target: '' },
         { label: 'Perfil', icon: UserRound, target: '' },
@@ -84,6 +88,7 @@ const navigation = computed(() => {
       { label: 'Barbeiros', icon: Users, target: '/dashboard#equipe' },
       { label: 'Serviços', icon: Scissors, target: '/dashboard#servicos' },
     ] },
+    ...usersNavigation,
     { title: 'Conta', items: [
       { label: 'Notificações', icon: Bell, target: '' },
       { label: 'Perfil', icon: UserRound, target: '' },
