@@ -57,7 +57,7 @@ public interface UserControllerDoc {
             @PageableDefault(
                     page = 0,
                     size = 10,
-                    sort = "name,email",
+                    sort = {"name","email"},
                     direction = Sort.Direction.ASC
             ) Pageable pageable
     );

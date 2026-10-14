@@ -8,8 +8,11 @@ import dev.barbershop.api.user.admin.dto.UserFilterDTO;
 import dev.barbershop.api.user.admin.dto.UserUpdateRolesDTO;
 import dev.barbershop.api.user.admin.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,7 +28,18 @@ public class UserController implements UserControllerDoc {
     private final UserService service;
 
     @Override
-    public ResponseEntity<ApiResponseDTO<Page<UserAdminResponseDTO>>> findAll(UserFilterDTO dto, Pageable pageable) {
+    public ResponseEntity<ApiResponseDTO<Page<UserAdminResponseDTO>>> findAll(
+            @ParameterObject
+            @ModelAttribute UserFilterDTO dto,
+
+            @ParameterObject
+            @PageableDefault(
+                    page = 0,
+                    size = 10,
+                    sort = {"name","email"},
+                    direction = Sort.Direction.ASC
+            )
+            Pageable pageable) {
 
         Page<UserAdminResponseDTO> users = service.findAll(dto, pageable);
 
@@ -39,7 +53,7 @@ public class UserController implements UserControllerDoc {
     }
 
     @Override
-    public ResponseEntity<ApiResponseDTO<Void>> updateRoles(UUID id, UserUpdateRolesDTO dto) {
+    public ResponseEntity<ApiResponseDTO<Void>> updateRoles(@PathVariable UUID id, @RequestBody UserUpdateRolesDTO dto) {
 
         service.updateRoles(id, dto);
 
