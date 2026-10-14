@@ -19,7 +19,6 @@ const mobileMenuButton = ref<HTMLButtonElement | null>(null)
 const sidebar = ref<HTMLElement | null>(null)
 const desktop = useMediaQuery('(min-width: 1024px)')
 
-const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 const initials = (name: string) => name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('')
 const userInitials = computed(() => auth.user ? initials(auth.user.name) : 'BF')
 const roleLabel = computed(() => {
@@ -34,7 +33,7 @@ const navigation = computed(() => {
   const isAdmin = roles.includes('ADMIN')
   const isBarber = roles.includes('BARBEIRO') || roles.includes('BARBER')
   const canReadUsers = auth.user?.permissions?.includes('USER_READ') ?? false
-  const usersItem = { label: 'Usuários', icon: Users, target: '/admin/users' }
+  const usersItem = { label: 'Usuários', icon: Users, target: '/users' }
   const usersNavigation = canReadUsers ? [{ title: 'Administração', items: [usersItem] }] : []
 
   if (isAdmin) {

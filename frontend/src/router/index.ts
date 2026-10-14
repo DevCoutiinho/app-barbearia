@@ -13,8 +13,8 @@ const router = createRouter({
             component: () => import('../views/Dashboard.vue')
         },
         {
-            path: '/admin/users',
-            name: 'users-manager',
+            path: '/users',
+            name: 'users',
             component: () => import('../views/UsersManager.vue')
         },
         {

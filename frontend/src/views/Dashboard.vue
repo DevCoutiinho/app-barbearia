@@ -62,7 +62,7 @@ const navigation = computed(() => {
   const isAdmin = roles.includes('ADMIN')
   const isBarber = roles.includes('BARBEIRO') || roles.includes('BARBER')
   const canReadUsers = auth.user?.permissions?.includes('USER_READ') ?? false
-  const usersItem = { label: 'Usuários', icon: Users, target: '/admin/users' }
+  const usersItem = { label: 'Usuários', icon: Users, target: '/users' }
   const usersNavigation = canReadUsers ? [{ title: 'Administração', items: [usersItem] }] : []
 
   if (isAdmin) {
