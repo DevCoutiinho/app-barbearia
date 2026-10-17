@@ -15,4 +15,10 @@ VALUES
     ('10000000-0000-0000-0000-000000000011', 'PERMISSION_UPDATE', 'Editar permissões'),
     ('10000000-0000-0000-0000-000000000012', 'PERMISSION_DELETE', 'Excluir permissões'),
 
-    ('10000000-0000-0000-0000-000000000013', 'ADMIN_ACCESS', 'Acesso liberado ao painel de administração');
+    ('10000000-0000-0000-0000-000000000013', 'ADMIN_ACCESS', 'Acesso liberado ao painel de administração'),
+
+    ('10000000-0000-0000-0000-000000000014', 'INVENTORY_READ', 'Visualizar estoque'),
+    ('10000000-0000-0000-0000-000000000015', 'INVENTORY_CREATE', 'Cadastrar itens no estoque'),
+    ('10000000-0000-0000-0000-000000000016', 'INVENTORY_UPDATE', 'Atualizar itens do estoque'),
+    ('10000000-0000-0000-0000-000000000017', 'INVENTORY_DELETE', 'Excluir itens do estoque');
+    
