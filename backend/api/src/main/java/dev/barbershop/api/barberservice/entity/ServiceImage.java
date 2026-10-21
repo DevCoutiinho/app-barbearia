@@ -4,6 +4,7 @@ import dev.barbershop.api.common.auditing.Creatable;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -35,5 +36,10 @@ public class ServiceImage extends Creatable {
     private String altText;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean isCover = Boolean.FALSE;
+
+    public void assignToService(BarberService service) {
+        this.service = Objects.requireNonNull(service, "O serviço não pode ser nulo");
+    }
 }

@@ -13,9 +13,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.core.GrantedAuthorityDefaults;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -78,6 +77,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/admin/permissions/**").hasAuthority("PERMISSION_CREATE")
                         .requestMatchers(HttpMethod.PUT, "/admin/permissions/**").hasAuthority("PERMISSION_UPDATE")
                         .requestMatchers(HttpMethod.DELETE, "/admin/permissions/**").hasAuthority("PERMISSION_DELETE")
+
+                        .requestMatchers("/service-categories/**","/barber-services/**").hasRole("BARBER")
 
                         .anyRequest().authenticated()
                 )
@@ -156,10 +157,9 @@ public class SecurityConfig {
         };
     }
 
-
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(10);
+    public static GrantedAuthorityDefaults grantedAuthorityDefaults() {
+        return new GrantedAuthorityDefaults("");
     }
 
     private SecretKey secretKey() {
@@ -168,5 +168,6 @@ public class SecurityConfig {
                 ALGORITHM
         );
     }
+
 
 }

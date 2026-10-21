@@ -1,7 +1,9 @@
 package dev.barbershop.api.user.admin.service;
 
 import dev.barbershop.api.auth.authorization.entity.Role;
+import dev.barbershop.api.auth.authorization.enums.RoleName;
 import dev.barbershop.api.auth.authorization.repository.RoleRepository;
+import dev.barbershop.api.barber.entity.Barber;
 import dev.barbershop.api.common.exception.ResourceAlreadyExistsException;
 import dev.barbershop.api.common.exception.ResourceNotFoundException;
 import dev.barbershop.api.config.security.CustomUserDetails;
@@ -50,27 +52,43 @@ public class UserService {
         User user = findById(id);
 
         if (dto.roleIds() != null) {
-            Set<UUID> targetIds = dto.roleIds();
+
+            List<Role> targetRoles = dto.roleIds().isEmpty()
+                    ? List.of()
+                    : roleRepository.findAllById(dto.roleIds());
+
+            boolean hasBarber = targetRoles.stream().anyMatch(role -> role.getName() == RoleName.BARBER);
+            boolean hasClient = targetRoles.stream().anyMatch(role -> role.getName() == RoleName.USER);
+
+            if (hasBarber && hasClient) {
+                targetRoles = targetRoles.stream()
+                        .filter(role -> role.getName() != RoleName.USER)
+                        .toList();
+            }
+
+            if (hasBarber) {
+                createBarberProfile(user);
+            }
+
+            Set<UUID> finalRoleIds = targetRoles.stream()
+                    .map(Role::getId)
+                    .collect(Collectors.toSet());
 
             List<Role> toRemove = user.getRoles().stream()
-                    .filter(role -> !targetIds.contains(role.getId()))
+                    .filter(role -> !finalRoleIds.contains(role.getId()))
                     .toList();
 
             toRemove.forEach(user::removeRole);
 
-            if (!targetIds.isEmpty()) {
-                List<Role> targetRoles = roleRepository.findAllById(targetIds);
+            Set<UUID> currentIds = user.getRoles().stream()
+                    .map(Role::getId)
+                    .collect(Collectors.toSet());
 
-                Set<UUID> currentIds = user.getRoles().stream()
-                        .map(Role::getId)
-                        .collect(Collectors.toSet());
+            List<Role> toAdd = targetRoles.stream()
+                    .filter(role -> !currentIds.contains(role.getId()))
+                    .toList();
 
-                List<Role> toAdd = targetRoles.stream()
-                        .filter(role -> !currentIds.contains(role.getId()))
-                        .toList();
-
-                toAdd.forEach(user::addRole);
-            }
+            toAdd.forEach(user::addRole);
         }
     }
 
@@ -92,5 +110,12 @@ public class UserService {
     private User findById(UUID id) throws ResourceAlreadyExistsException {
         return repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Nenhum usuário encontrado com esse ID"));
+    }
+
+    private void createBarberProfile(User user) {
+        if (user.getBarberProfile() == null) {
+            Barber barber = Barber.builder().build();
+            barber.addUser(user);
+        }
     }
 }

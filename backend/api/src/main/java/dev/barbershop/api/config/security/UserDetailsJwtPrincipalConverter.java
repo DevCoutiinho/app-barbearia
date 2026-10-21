@@ -14,6 +14,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -37,10 +39,15 @@ public class UserDetailsJwtPrincipalConverter implements Converter<Jwt, OAuth2Au
         User user = repository.findByEmailWitchRoles(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
 
-        Set<GrantedAuthority> authorities = authorityMapper.mapToAuthorities(user);
+        Set<GrantedAuthority> authorities = new HashSet<>(authorityMapper.mapToAuthorities(user));
         Set<RoleName> roles = authorityMapper.mapToRoleName(user);
 
-        System.out.println("authorities : " + authorities);
+        roles.forEach(role -> authorities.add(new SimpleGrantedAuthority(role.name())));
+
+        List<String> jwtRoles = jwt.getClaimAsStringList("roles");
+        if (jwtRoles != null) {
+            jwtRoles.forEach(role -> authorities.add(new SimpleGrantedAuthority(role)));
+        }
 
         CustomUserDetails customUserDetails = new CustomUserDetails(
                 user.getId(),
