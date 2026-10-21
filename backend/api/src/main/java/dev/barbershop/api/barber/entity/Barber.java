@@ -60,4 +60,9 @@ public class Barber extends Creatable {
         this.user = user;
         user.addBarber(this);
     }
+
+    public void addService(BarberService service){
+        Objects.requireNonNull(service);
+        services.add(service);
+    }
 }

@@ -6,6 +6,7 @@ import lombok.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -17,7 +18,7 @@ import java.util.UUID;
         onlyExplicitlyIncluded = true,
         callSuper = false
 )
-@ToString
+@ToString(exclude = "services")
 @Table(name = "service_categories")
 public class ServiceCategory extends Creatable {
 
@@ -32,9 +33,26 @@ public class ServiceCategory extends Creatable {
     private String description;
 
     @JoinColumn(nullable = false)
-    private Boolean active = Boolean.TRUE;
+    private boolean active = true;
 
     @OneToMany(mappedBy = "category")
     @Builder.Default
     List<BarberService> services = new ArrayList<>();
+
+    public void changeName(String name){
+        this.name = Objects.requireNonNull(name);
+    }
+
+    public void changeDescription(String description){
+        this.description = description;
+    }
+
+    public void changeActive(boolean active){
+        this.active = active;
+    }
+
+    public void addService(BarberService service){
+        Objects.requireNonNull(service);
+        this.services.add(service);
+    }
 }

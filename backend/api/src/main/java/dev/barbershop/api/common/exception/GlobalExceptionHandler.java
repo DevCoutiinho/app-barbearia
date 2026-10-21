@@ -14,12 +14,14 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestCookieException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
@@ -37,6 +39,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceAlreadyExistsException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public StandardErrorDTO handleResourceAlreadyExists(ResourceAlreadyExistsException exception) {
+        return StandardErrorDTO.conflict(exception.getMessage());
+    }
+
+    @ExceptionHandler(ResourceConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public StandardErrorDTO handleResourceConflict(ResourceConflictException exception) {
         return StandardErrorDTO.conflict(exception.getMessage());
     }
 
@@ -117,6 +125,16 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+    public StandardErrorDTO handleHttpMediaTypeNotSupported(HttpMediaTypeNotSupportedException exception) {
+        String contentType = exception.getContentType() != null ? exception.getContentType().toString() : "não especificado";
+        return StandardErrorDTO.of(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "Tipo de mídia não suportado: " + contentType
+        );
+    }
+
     @ExceptionHandler(NoResourceFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public StandardErrorDTO handleNoResourceFound(NoResourceFoundException exception) {
@@ -147,5 +165,11 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public StandardErrorDTO MissingRefreshToken(InvalidTokenException exception) {
         return StandardErrorDTO.unauthorized(exception.getMessage());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public StandardErrorDTO handleMaxUploadSizeExceeded(MaxUploadSizeExceededException exception) {
+        return StandardErrorDTO.badRequest("O tamanho do arquivo enviado excede o limite permitido (máximo de 10MB).");
     }
 }
