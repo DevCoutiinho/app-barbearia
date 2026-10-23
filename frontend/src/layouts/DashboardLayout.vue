@@ -32,6 +32,7 @@ const navigation = computed(() => {
   const roles = auth.user?.roles || []
   const isAdmin = roles.includes('ADMIN')
   const isBarber = roles.includes('BARBEIRO') || roles.includes('BARBER')
+  const canManageServices = roles.includes('BARBER')
   const canReadUsers = auth.user?.permissions?.includes('USER_READ') ?? false
   const usersItem = { label: 'Usuários', icon: Users, target: '/users' }
   const usersNavigation = canReadUsers ? [{ title: 'Administração', items: [usersItem] }] : []
@@ -46,7 +47,7 @@ const navigation = computed(() => {
         { label: 'Permissões', icon: KeyRound, target: '/permissoes' },
         ...(canReadUsers ? [usersItem] : []),
         { label: 'Estoque', icon: Package, target: '' },
-        { label: 'Serviços', icon: Scissors, target: '/dashboard#servicos' },
+        { label: 'Serviços', icon: Scissors, target: canManageServices ? '/services' : '/dashboard#servicos' },
         { label: 'Configurações', icon: Settings, target: '' },
       ] },
       { title: 'Conta', items: [
@@ -64,7 +65,7 @@ const navigation = computed(() => {
         { label: 'Agendamentos', icon: ClipboardList, target: '/dashboard#agenda' },
       ] },
       { title: 'Trabalho', items: [
-        { label: 'Meus serviços', icon: Scissors, target: '/dashboard#servicos' },
+        { label: 'Meus serviços', icon: Scissors, target: canManageServices ? '/services' : '/dashboard#servicos' },
         { label: 'Estoque', icon: Package, target: '' },
         { label: 'Histórico', icon: History, target: '' },
       ] },
