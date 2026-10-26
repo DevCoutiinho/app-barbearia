@@ -18,6 +18,11 @@ const router = createRouter({
             component: () => import('../views/UsersManager.vue')
         },
         {
+            path: '/services',
+            name: 'services',
+            component: () => import('../views/ServicesManager.vue')
+        },
+        {
             path: '/roles',
             name: 'roles',
             component: () => import('../views/Roles.vue')

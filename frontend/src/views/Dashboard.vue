@@ -61,6 +61,7 @@ const navigation = computed(() => {
   const roles = auth.user?.roles || []
   const isAdmin = roles.includes('ADMIN')
   const isBarber = roles.includes('BARBEIRO') || roles.includes('BARBER')
+  const canManageServices = roles.includes('BARBER')
   const canReadUsers = auth.user?.permissions?.includes('USER_READ') ?? false
   const usersItem = { label: 'Usuários', icon: Users, target: '/users' }
   const usersNavigation = canReadUsers ? [{ title: 'Administração', items: [usersItem] }] : []
@@ -75,7 +76,7 @@ const navigation = computed(() => {
         { label: 'Permissões', icon: KeyRound, target: '/permissoes' },
         ...(canReadUsers ? [usersItem] : []),
         { label: 'Estoque', icon: Package, target: '' },
-        { label: 'Serviços', icon: Scissors, target: '#servicos' },
+        { label: 'Serviços', icon: Scissors, target: canManageServices ? '/services' : '#servicos' },
         { label: 'Configurações', icon: Settings, target: '' },
       ] },
       { title: 'Conta', items: [
@@ -93,7 +94,7 @@ const navigation = computed(() => {
         { label: 'Agendamentos', icon: ClipboardList, target: '#agenda' },
       ] },
       { title: 'Trabalho', items: [
-        { label: 'Meus serviços', icon: Scissors, target: '#servicos' },
+        { label: 'Meus serviços', icon: Scissors, target: canManageServices ? '/services' : '#servicos' },
         { label: 'Estoque', icon: Package, target: '' },
         { label: 'Histórico', icon: History, target: '' },
       ] },
@@ -234,7 +235,7 @@ function exportAppointments() {
         <div v-for="group in navigation" :key="group.title" class="mt-[18px]">
           <p v-if="group.title" class="mb-1 px-[11px] text-[11px] leading-4 font-medium text-[#74747f]">{{ group.title }}</p>
           <template v-for="item in group.items" :key="item.label">
-            <RouterLink v-if="item.target.startsWith('/')" :to="item.target" class="nav-item text-[#303039] hover:bg-paper" @click="sidebarOpen = false">
+            <RouterLink v-if="item.target.startsWith('/')" :to="item.target" class="nav-item text-[#303039] hover:bg-paper" active-class="bg-ink font-semibold text-white" @click="sidebarOpen = false">
               <component :is="item.icon" class="size-[17px] shrink-0 text-[#74747f]" :stroke-width="1.7" aria-hidden="true" />{{ item.label }}
             </RouterLink>
             <a v-else-if="item.target" :href="item.target" class="nav-item" :class="['Dashboard', 'Início'].includes(item.label) ? 'bg-ink font-semibold text-white' : 'text-[#303039] hover:bg-paper'" :aria-current="['Dashboard', 'Início'].includes(item.label) ? 'page' : undefined" @click="sidebarOpen = false">
