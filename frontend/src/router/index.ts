@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from "vue-router";
 import Login from "../views/auth/Login.vue";
 import Register from "../views/auth/Register.vue";
 import Home from "../views/Home.vue";
+import { useAuthStore } from "../stores/auth";
+import { stockAccess } from "../composables/useStockPermissions";
 
 const router = createRouter({
     history: createWebHistory(),
@@ -21,6 +23,18 @@ const router = createRouter({
             path: '/services',
             name: 'services',
             component: () => import('../views/ServicesManager.vue')
+        },
+        {
+            path: '/estoque',
+            name: 'stock',
+            component: () => import('../views/StockManager.vue'),
+            beforeEnter: () => {
+                const auth = useAuthStore()
+                if (!auth.initialized) auth.restoreSession()
+                if (!auth.isAuthenticated) return { name: 'login' }
+                // Sem permissão de leitura, nem carrega a tela.
+                if (!stockAccess(auth.user).canView) return { name: 'dashboard' }
+            }
         },
         {
             path: '/roles',

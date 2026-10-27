@@ -75,7 +75,7 @@ const navigation = computed(() => {
         { label: 'Roles', icon: ShieldCheck, target: '/roles' },
         { label: 'Permissões', icon: KeyRound, target: '/permissoes' },
         ...(canReadUsers ? [usersItem] : []),
-        { label: 'Estoque', icon: Package, target: '' },
+        { label: 'Estoque', icon: Package, target: '/estoque' },
         { label: 'Serviços', icon: Scissors, target: canManageServices ? '/services' : '#servicos' },
         { label: 'Configurações', icon: Settings, target: '' },
       ] },
@@ -95,7 +95,7 @@ const navigation = computed(() => {
       ] },
       { title: 'Trabalho', items: [
         { label: 'Meus serviços', icon: Scissors, target: canManageServices ? '/services' : '#servicos' },
-        { label: 'Estoque', icon: Package, target: '' },
+        { label: 'Estoque', icon: Package, target: '/estoque' },
         { label: 'Histórico', icon: History, target: '' },
       ] },
       ...usersNavigation,
