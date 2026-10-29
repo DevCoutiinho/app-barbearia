@@ -30,6 +30,8 @@ const nameFilter = ref('')
 const statusFilter = ref<'' | 'true' | 'false'>('')
 const categoryFilter = ref('')
 const techniqueFilter = ref<'' | ServiceTechnique>('')
+const minPriceFilter = ref('')
+const maxPriceFilter = ref('')
 const appliedFilters = ref<ServiceFilters>({})
 const pageSize = ref(10)
 const requestedPage = ref(0)
@@ -142,6 +144,10 @@ async function applyFilters() {
   if (statusFilter.value !== '') filters.active = statusFilter.value === 'true'
   if (categoryFilter.value) filters.categoryId = categoryFilter.value
   if (techniqueFilter.value) filters.technique = techniqueFilter.value
+  const min = parseFloat(minPriceFilter.value.replace(',', '.'))
+  const max = parseFloat(maxPriceFilter.value.replace(',', '.'))
+  if (!isNaN(min) && min >= 0) filters.minPrice = min
+  if (!isNaN(max) && max >= 0) filters.maxPrice = max
   appliedFilters.value = filters
   await loadServices(0)
 }
@@ -152,6 +158,8 @@ async function clearFilters() {
   statusFilter.value = ''
   categoryFilter.value = ''
   techniqueFilter.value = ''
+  minPriceFilter.value = ''
+  maxPriceFilter.value = ''
   appliedFilters.value = {}
   await loadServices(0)
 }
@@ -357,7 +365,7 @@ onMounted(() => {
         </p>
         <div v-else class="overflow-hidden rounded-2xl border border-line bg-white" :aria-busy="loading">
           <form class="border-b border-line p-4 sm:p-5" @submit.prevent="applyFilters">
-            <fieldset :disabled="busy" class="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_140px]">
+            <fieldset :disabled="busy" class="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <legend class="sr-only">Filtros de serviços</legend>
               <label class="field-label" for="service-filter-name">Nome
                 <input id="service-filter-name" v-model="nameFilter" type="search" class="field-input" placeholder="Buscar pelo nome" />
@@ -379,7 +387,13 @@ onMounted(() => {
                   <option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option>
                 </select>
               </label>
-              <div class="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-4">
+              <label class="field-label" for="service-filter-min-price">Preço mínimo (R$)
+                <input id="service-filter-min-price" v-model="minPriceFilter" type="text" inputmode="decimal" class="field-input" placeholder="0,00" />
+              </label>
+              <label class="field-label" for="service-filter-max-price">Preço máximo (R$)
+                <input id="service-filter-max-price" v-model="maxPriceFilter" type="text" inputmode="decimal" class="field-input" placeholder="9999,99" />
+              </label>
+              <div class="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-3">
                 <button type="submit" class="button button-primary"><Search class="size-4" aria-hidden="true" />Filtrar</button>
                 <button type="button" class="button button-secondary" @click="clearFilters"><X class="size-4" aria-hidden="true" />Limpar</button>
               </div>
