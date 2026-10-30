@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { isAxiosError } from 'axios'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
-import { ChevronLeft, ChevronRight, Pencil, Plus, Power, RefreshCw, Scissors, Search, X } from '@lucide/vue'
+import { ChevronLeft, ChevronRight, FolderPlus, Pencil, Plus, Power, RefreshCw, Scissors, Search, X } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import DashboardLayout from '../layouts/DashboardLayout.vue'
 import { useAuthStore } from '../stores/auth'
@@ -26,10 +26,23 @@ const saving = ref(false)
 const changingStatus = ref(false)
 const busy = computed(() => loading.value || saving.value || changingStatus.value)
 
+/* ── Criação de categoria ── */
+const categoryDialog = ref<HTMLDialogElement | null>(null)
+const categoryDialogOpen = ref(false)
+const categoryName = ref('')
+const categoryDescription = ref('')
+const categoryActive = ref(true)
+const savingCategory = ref(false)
+const categoryFormError = ref('')
+const categoryNameError = ref('')
+let categoryTrigger: HTMLElement | null = null
+
 const nameFilter = ref('')
 const statusFilter = ref<'' | 'true' | 'false'>('')
 const categoryFilter = ref('')
 const techniqueFilter = ref<'' | ServiceTechnique>('')
+const minPriceFilter = ref('')
+const maxPriceFilter = ref('')
 const appliedFilters = ref<ServiceFilters>({})
 const pageSize = ref(10)
 const requestedPage = ref(0)
@@ -142,6 +155,10 @@ async function applyFilters() {
   if (statusFilter.value !== '') filters.active = statusFilter.value === 'true'
   if (categoryFilter.value) filters.categoryId = categoryFilter.value
   if (techniqueFilter.value) filters.technique = techniqueFilter.value
+  const min = parseFloat(minPriceFilter.value.replace(',', '.'))
+  const max = parseFloat(maxPriceFilter.value.replace(',', '.'))
+  if (!isNaN(min) && min >= 0) filters.minPrice = min
+  if (!isNaN(max) && max >= 0) filters.maxPrice = max
   appliedFilters.value = filters
   await loadServices(0)
 }
@@ -152,6 +169,8 @@ async function clearFilters() {
   statusFilter.value = ''
   categoryFilter.value = ''
   techniqueFilter.value = ''
+  minPriceFilter.value = ''
+  maxPriceFilter.value = ''
   appliedFilters.value = {}
   await loadServices(0)
 }
@@ -312,6 +331,65 @@ watch(editorBusy, async (current, previous) => {
   }
 })
 
+/* ── Criação de categoria — funções ── */
+
+function openCategoryDialog() {
+  if (!canManageServices.value || savingCategory.value || categoryDialogOpen.value) return
+  categoryTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  categoryName.value = ''
+  categoryDescription.value = ''
+  categoryActive.value = true
+  categoryFormError.value = ''
+  categoryNameError.value = ''
+  categoryDialogOpen.value = true
+  void nextTick(() => {
+    categoryDialog.value?.showModal()
+    categoryDialog.value?.querySelector<HTMLInputElement>('#category-name')?.focus()
+  })
+}
+
+function closeCategoryDialog() {
+  if (savingCategory.value) return
+  categoryDialog.value?.close()
+  categoryDialogOpen.value = false
+  restoreFocus(categoryTrigger)
+}
+
+async function saveCategory() {
+  if (savingCategory.value || !canManageServices.value) return
+  categoryNameError.value = ''
+  categoryFormError.value = ''
+
+  const trimmedName = categoryName.value.trim()
+  if (!trimmedName) {
+    categoryNameError.value = 'Informe o nome da categoria.'
+    return
+  }
+  if (trimmedName.length > 100) {
+    categoryNameError.value = 'O nome deve ter no máximo 100 caracteres.'
+    return
+  }
+
+  savingCategory.value = true
+  try {
+    await serviceService.createCategory({
+      name: trimmedName,
+      description: categoryDescription.value.trim() || undefined,
+      active: categoryActive.value,
+    })
+    toast.success('Categoria criada com sucesso.')
+    categoryDialog.value?.close()
+    categoryDialogOpen.value = false
+    await loadCategories()
+    restoreFocus(categoryTrigger)
+  } catch (cause) {
+    categoryFormError.value = requestMessage(cause, 'Não foi possível criar a categoria. Confira os dados e tente novamente.')
+    handleApiError(cause, undefined, categoryFormError.value)
+  } finally {
+    savingCategory.value = false
+  }
+}
+
 watch(canManageServices, allowed => {
   if (allowed) {
     void loadServices(0)
@@ -319,8 +397,10 @@ watch(canManageServices, allowed => {
   } else {
     editorDialog.value?.close()
     statusDialog.value?.close()
+    categoryDialog.value?.close()
     editorOpen.value = false
     statusTarget.value = null
+    categoryDialogOpen.value = false
   }
 })
 
@@ -346,6 +426,9 @@ onMounted(() => {
             <button type="button" class="button button-secondary" :disabled="busy" @click="loadServices()">
               <RefreshCw class="size-4" :class="{ 'animate-spin motion-reduce:animate-none': loading }" aria-hidden="true" />Atualizar
             </button>
+            <button type="button" class="button button-secondary" :disabled="busy || savingCategory" @click="openCategoryDialog()">
+              <FolderPlus class="size-4" aria-hidden="true" />Nova categoria
+            </button>
             <button ref="createButton" type="button" class="button button-primary" :disabled="busy" @click="openEditor()">
               <Plus class="size-4" aria-hidden="true" />Novo serviço
             </button>
@@ -357,7 +440,7 @@ onMounted(() => {
         </p>
         <div v-else class="overflow-hidden rounded-2xl border border-line bg-white" :aria-busy="loading">
           <form class="border-b border-line p-4 sm:p-5" @submit.prevent="applyFilters">
-            <fieldset :disabled="busy" class="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_140px]">
+            <fieldset :disabled="busy" class="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <legend class="sr-only">Filtros de serviços</legend>
               <label class="field-label" for="service-filter-name">Nome
                 <input id="service-filter-name" v-model="nameFilter" type="search" class="field-input" placeholder="Buscar pelo nome" />
@@ -379,7 +462,13 @@ onMounted(() => {
                   <option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option>
                 </select>
               </label>
-              <div class="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-4">
+              <label class="field-label" for="service-filter-min-price">Preço mínimo (R$)
+                <input id="service-filter-min-price" v-model="minPriceFilter" type="text" inputmode="decimal" class="field-input" placeholder="0,00" />
+              </label>
+              <label class="field-label" for="service-filter-max-price">Preço máximo (R$)
+                <input id="service-filter-max-price" v-model="maxPriceFilter" type="text" inputmode="decimal" class="field-input" placeholder="9999,99" />
+              </label>
+              <div class="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-3">
                 <button type="submit" class="button button-primary"><Search class="size-4" aria-hidden="true" />Filtrar</button>
                 <button type="button" class="button button-secondary" @click="clearFilters"><X class="size-4" aria-hidden="true" />Limpar</button>
               </div>
@@ -504,7 +593,7 @@ onMounted(() => {
         <div v-else-if="categoriesError" class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="alert">
           <p>{{ categoriesError }}</p><button type="button" class="mt-2 font-semibold underline" :disabled="editorBusy" @click="loadCategories">Tentar novamente</button>
         </div>
-        <p v-else-if="!categories.length && !editing" class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="status">Nenhuma categoria disponível. É necessário cadastrar uma categoria antes de criar um serviço.</p>
+        <p v-else-if="!categories.length && !editing" class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="status">Nenhuma categoria disponível. <button type="button" class="font-semibold underline" :disabled="editorBusy" @click="openCategoryDialog">Criar uma categoria</button> antes de cadastrar um serviço.</p>
         <div class="mt-6 flex justify-end gap-2">
           <button type="button" class="button button-secondary" :disabled="editorBusy" @click="closeEditor">Cancelar</button>
           <button type="submit" class="button button-primary" :disabled="editorBusy || cannotCreate || Boolean(imageError) || !canManageServices">{{ editorBusy ? 'Salvando...' : 'Salvar serviço' }}</button>
@@ -521,6 +610,36 @@ onMounted(() => {
         <button type="button" data-cancel class="button button-secondary" :disabled="changingStatus" @click="closeStatusConfirmation">Cancelar</button>
         <button type="button" class="button button-primary" :disabled="busy || !canManageServices" @click="changeStatus">{{ changingStatus ? 'Alterando status...' : statusTarget?.active ? 'Inativar serviço' : 'Reativar serviço' }}</button>
       </div>
+    </dialog>
+
+    <dialog ref="categoryDialog" class="service-dialog max-w-[480px]" aria-labelledby="category-dialog-title" @cancel.prevent="closeCategoryDialog">
+      <header class="mb-5 flex items-start justify-between gap-4">
+        <div><p class="mb-1 text-[11px] font-semibold tracking-[1.3px] text-[#a67039]">CATEGORIAS</p><h2 id="category-dialog-title" class="text-xl font-bold">Nova categoria</h2></div>
+        <button type="button" class="button button-secondary size-9 !p-0" aria-label="Fechar formulário" :disabled="savingCategory" @click="closeCategoryDialog"><X class="size-4" aria-hidden="true" /></button>
+      </header>
+      <form novalidate @submit.prevent="saveCategory">
+        <div v-if="categoryFormError" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">{{ categoryFormError }}</div>
+        <fieldset :disabled="savingCategory" class="grid min-w-0 gap-4">
+          <legend class="sr-only">Dados da categoria</legend>
+          <div>
+            <label for="category-name" class="field-label">Nome</label>
+            <input id="category-name" v-model="categoryName" type="text" maxlength="100" class="field-input" :aria-invalid="Boolean(categoryNameError)" :aria-describedby="categoryNameError ? 'category-name-error' : undefined" />
+            <p v-if="categoryNameError" id="category-name-error" class="field-error">{{ categoryNameError }}</p>
+          </div>
+          <div>
+            <label for="category-description" class="field-label">Descrição (opcional)</label>
+            <input id="category-description" v-model="categoryDescription" type="text" maxlength="255" class="field-input" />
+          </div>
+          <div>
+            <label for="category-active" class="field-label">Status</label>
+            <select id="category-active" v-model="categoryActive" class="field-input"><option :value="true">Ativa</option><option :value="false">Inativa</option></select>
+          </div>
+        </fieldset>
+        <div class="mt-6 flex justify-end gap-2">
+          <button type="button" class="button button-secondary" :disabled="savingCategory" @click="closeCategoryDialog">Cancelar</button>
+          <button type="submit" class="button button-primary" :disabled="savingCategory || !canManageServices">{{ savingCategory ? 'Salvando...' : 'Criar categoria' }}</button>
+        </div>
+      </form>
     </dialog>
   </DashboardLayout>
 </template>

@@ -70,3 +70,9 @@ export interface CreateServicePayload {
 export type UpdateServicePayload = Omit<CreateServicePayload, 'categoryId'> & {
   categoryId?: string
 }
+
+export interface CreateCategoryPayload {
+  name: string
+  description?: string
+  active: boolean
+}
