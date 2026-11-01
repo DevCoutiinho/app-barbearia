@@ -22,7 +22,13 @@ const router = createRouter({
         {
             path: '/services',
             name: 'services',
-            component: () => import('../views/ServicesManager.vue')
+            component: () => import('../views/ServicesManager.vue'),
+            beforeEnter: () => {
+                const auth = useAuthStore()
+                if (!auth.initialized) auth.restoreSession()
+                if (!auth.isAuthenticated) return { name: 'login' }
+                // As operações exigem a role BARBER; a própria tela avisa quem não a tem.
+            }
         },
         {
             path: '/estoque',
