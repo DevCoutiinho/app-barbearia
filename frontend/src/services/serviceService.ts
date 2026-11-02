@@ -3,6 +3,7 @@ import type { ApiResponse } from '../types/api'
 import type { PaginatedResponse } from '../types/user'
 import type {
   BarberService,
+  CreateCategoryPayload,
   CreateServicePayload,
   ServiceCategory,
   ServiceFilters,
@@ -64,6 +65,11 @@ const serviceService = {
 
   async listCategories(): Promise<ApiResponse<ServiceCategory[]>> {
     const response = await api.get<ApiResponse<ServiceCategory[]>>('/service-categories')
+    return response.data
+  },
+
+  async createCategory(payload: CreateCategoryPayload): Promise<ApiResponse<null>> {
+    const response = await api.post<ApiResponse<null>>('/service-categories', payload)
     return response.data
   },
 }
