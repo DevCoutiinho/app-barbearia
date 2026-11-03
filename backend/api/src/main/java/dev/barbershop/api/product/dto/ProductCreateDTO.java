@@ -1,40 +1,39 @@
 package dev.barbershop.api.product.dto;
 
 import dev.barbershop.api.product.enums.UnitMeasurement;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.Setter;
+import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 
-@Getter
-@Setter
-public class ProductCreateDTO {
-  
-    @NotBlank
-    @Size(max = 100) 
-    private String name;
+public record ProductCreateDTO(
 
-    private String description;
+        @NotBlank(message = "O nome do produto é obrigatório")
+        @Size(max = 100)
+        String name,
 
-    @NotNull 
-    @DecimalMin("0.00")
-    private BigDecimal minimumQuantity;
+        String description,
 
-    @NotNull 
-    @DecimalMin("0.00")
-    private BigDecimal initialQuantity;
+        @NotNull
+        @DecimalMin(value = "0.00", inclusive = true, message = "")
+        @DecimalMax(value = "9999.99", inclusive = true, message = "")
+        BigDecimal minimumQuantity,
 
-    @NotNull 
-    private UnitMeasurement unitMeasurement;
+        @NotNull
+        @DecimalMin("0.00")
+        @DecimalMax(value = "9999.99", inclusive = true, message = "")
+        BigDecimal initialQuantity,
 
-    @NotNull 
-    @DecimalMin("0.00")
-    private BigDecimal priceCost;
+        @NotNull
+        UnitMeasurement unitMeasurement,
 
-    @NotNull 
-    private Boolean active;
+        @NotNull
+        @DecimalMin("0.00")
+        @DecimalMax(value = "9999.99", inclusive = true, message = "")
+        BigDecimal priceCost,
+
+        @NotNull(message = "")
+        Boolean active
+) {
+
+
 }

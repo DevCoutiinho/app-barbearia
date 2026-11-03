@@ -10,5 +10,5 @@ public interface ServiceCategoryMapper {
 
     ServiceCategory toEntity(ServiceCategoryCreateDTO dto);
 
-    ServiceCategoryResponseDTO toCategoryResponseDTO(ServiceCategory serviceCategory);
+        ServiceCategoryResponseDTO toCategoryResponseDTO(ServiceCategory serviceCategory);
 }

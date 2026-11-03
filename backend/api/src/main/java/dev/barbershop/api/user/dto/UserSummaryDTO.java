@@ -1,4 +1,9 @@
 package dev.barbershop.api.user.dto;
 
-public record UserSummaryDTO() {
+import java.util.UUID;
+
+public record UserSummaryDTO(
+        UUID id,
+        String name
+) {
 }

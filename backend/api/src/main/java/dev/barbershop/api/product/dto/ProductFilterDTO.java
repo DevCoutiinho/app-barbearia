@@ -4,12 +4,13 @@ import dev.barbershop.api.product.enums.UnitMeasurement;
 import lombok.Getter;
 import lombok.Setter;
 
-@Getter
-@Setter
-public class ProductSearchDTO {
+import java.math.BigDecimal;
 
-    private String name;
-    private String description;
-    private UnitMeasurement unitMeasurement;
-    private Boolean active;
+public record ProductFilterDTO(
+         String name,
+         String description,
+         UnitMeasurement unitMeasurement,
+         BigDecimal priceCost,
+         Boolean active
+) {
 }

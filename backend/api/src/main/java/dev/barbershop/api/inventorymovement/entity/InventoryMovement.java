@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -40,8 +41,24 @@ public class InventoryMovement extends Creatable {
     private BigDecimal quantity;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false,length = 50)
+    @Column(nullable = false, length = 50)
     private InventoryMovementType type;
+
+    public void registerEntry(){
+        this.type = InventoryMovementType.ENTRY;
+    }
+
+    public void registerOutput(){
+        this.type = InventoryMovementType.CONSUMPTION;
+    }
+
+    public void setUser(User user) {
+        this.user = Objects.requireNonNull(user);
+    }
+
+    public void setProduct(Product product) {
+        this.product = Objects.requireNonNull(product);
+    }
 
 
 }

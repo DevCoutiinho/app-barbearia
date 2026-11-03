@@ -78,6 +78,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/admin/permissions/**").hasAuthority("PERMISSION_UPDATE")
                         .requestMatchers(HttpMethod.DELETE, "/admin/permissions/**").hasAuthority("PERMISSION_DELETE")
 
+                        .requestMatchers(HttpMethod.GET, "/admin/stock/products/**").hasAuthority("INVENTORY_READ")
+                        .requestMatchers(HttpMethod.POST, "/admin/stock/products/**").hasAuthority("INVENTORY_CREATE")
+                        .requestMatchers(HttpMethod.PUT, "/admin/stock/products/**").hasAuthority("INVENTORY_UPDATE")
+                        .requestMatchers(HttpMethod.PATCH, "/admin/stock/products/**").hasAuthority("INVENTORY_UPDATE")
+
+                        .requestMatchers(HttpMethod.GET, "/admin/stock/movements/**").hasAuthority("INVENTORY_READ")
+                        .requestMatchers(HttpMethod.POST, "/admin/stock/movements/**").hasAuthority("INVENTORY_CREATE")
+
+
                         .requestMatchers("/service-categories/**","/barber-services/**").hasRole("BARBER")
 
                         .anyRequest().authenticated()
