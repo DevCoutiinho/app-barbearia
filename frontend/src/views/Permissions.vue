@@ -35,6 +35,10 @@ const PERMISSION_NAMES = [
   'PERMISSION_CREATE',
   'PERMISSION_UPDATE',
   'PERMISSION_DELETE',
+  'INVENTORY_READ',
+  'INVENTORY_CREATE',
+  'INVENTORY_UPDATE',
+  'INVENTORY_DELETE',
 ]
 
 const createSchema = toTypedSchema(createPermissionSchema);

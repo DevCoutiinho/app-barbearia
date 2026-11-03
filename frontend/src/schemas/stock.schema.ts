@@ -1,6 +1,5 @@
 import * as z from 'zod'
-import { PRODUCT_CATEGORIES, STOCK_UNIT_VALUES } from '../types/stock'
-import { toDateInput } from '../utils/stock'
+import { STOCK_UNIT_VALUES, type MovementType } from '../types/stock'
 
 function quantitySchema(label: string, { allowZero, max }: { allowZero: boolean; max?: number }) {
   return z.string({ required_error: `Informe ${label}.` })
@@ -21,37 +20,59 @@ function quantitySchema(label: string, { allowZero, max }: { allowZero: boolean;
     .transform(value => Number(value.replace(',', '.')))
 }
 
-export const productSchema = z.object({
+const baseProductFields = {
   name: z.string({ required_error: 'Informe o nome do produto.' })
     .trim()
     .min(1, 'Informe o nome do produto.')
     .max(100, 'O nome deve ter no máximo 100 caracteres.'),
-  category: z.string({ required_error: 'Selecione uma categoria.' })
+  description: z.string()
     .trim()
-    .min(1, 'Selecione uma categoria.')
-    .pipe(z.enum(PRODUCT_CATEGORIES, { errorMap: () => ({ message: 'Selecione uma categoria válida.' }) })),
-  unit: z.string({ required_error: 'Selecione uma unidade.' })
+    .max(255, 'A descrição deve ter no máximo 255 caracteres.')
+    .optional()
+    .transform(value => value ?? ''),
+  unitMeasurement: z.string({ required_error: 'Selecione uma unidade.' })
     .trim()
     .min(1, 'Selecione uma unidade.')
     .pipe(z.enum(STOCK_UNIT_VALUES, { errorMap: () => ({ message: 'Selecione uma unidade válida.' }) })),
+  minimumQuantity: quantitySchema('o estoque mínimo', { allowZero: true }),
+  priceCost: quantitySchema('o preço de custo', { allowZero: true }),
+}
+
+export const createProductSchema = z.object({
+  ...baseProductFields,
   initialQuantity: quantitySchema('a quantidade inicial', { allowZero: true }),
-  minimum: quantitySchema('o estoque mínimo', { allowZero: true }),
+  active: z.boolean({ required_error: 'Informe o status do produto.' }),
 })
 
-/** `maxQuantity` limita a baixa ao estoque atual; entradas não têm limite. */
-export function createMovementSchema(maxQuantity?: number, today = toDateInput()) {
+export const updateProductSchema = z.object({
+  ...baseProductFields,
+})
+
+export const productSchema = createProductSchema
+
+/** `maxQuantity` limita o consumo ao estoque atual; em consumo `userId` é obrigatório. */
+export function createMovementSchema(type: MovementType = 'ENTRY', maxQuantity?: number) {
+  if (type === 'CONSUMPTION') {
+    return z.object({
+      userId: z.string({ required_error: 'Selecione um usuário.' })
+        .trim()
+        .min(1, 'Selecione um usuário.')
+        .uuid('Selecione um usuário válido.'),
+      quantity: quantitySchema('a quantidade', { allowZero: false, max: maxQuantity }),
+    })
+  }
+
   return z.object({
-    quantity: quantitySchema('a quantidade', { allowZero: false, max: maxQuantity }),
-    date: z.string({ required_error: 'Informe a data da movimentação.' })
-      .trim()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe uma data válida.')
-      .refine(value => value <= today, 'A data não pode estar no futuro.'),
-    note: z.string().trim().max(255, 'A observação deve ter no máximo 255 caracteres.').optional()
-      .transform(value => value || undefined),
+    userId: z.string().optional(),
+    quantity: quantitySchema('a quantidade', { allowZero: false }),
   })
 }
 
-export type ProductInput = z.input<typeof productSchema>
-export type ProductData = z.output<typeof productSchema>
-export type MovementInput = z.input<ReturnType<typeof createMovementSchema>>
-export type MovementData = z.output<ReturnType<typeof createMovementSchema>>
+export type CreateProductInput = z.input<typeof createProductSchema>
+export type CreateProductData = z.output<typeof createProductSchema>
+export type UpdateProductInput = z.input<typeof updateProductSchema>
+export type UpdateProductData = z.output<typeof updateProductSchema>
+export type ProductInput = CreateProductInput
+export type ProductData = CreateProductData
+export type MovementInput = { userId?: string; quantity: string }
+export type MovementData = { userId?: string; quantity: number }

@@ -14,7 +14,7 @@ defineProps<{ products: Product[] }>()
       <ul class="mt-2 flex flex-wrap gap-2 text-[12px]">
         <li v-for="product in products" :key="product.id" class="rounded-full border border-amber-200 bg-white/70 px-2.5 py-1">
           <span class="font-semibold">{{ product.name }}</span>
-          <span class="text-amber-800"> · {{ formatQuantity(product.quantity, product.unit) }} de {{ formatQuantity(product.minimum, product.unit) }}</span>
+          <span class="text-amber-800"> · {{ formatQuantity(product.currentQuantity, product.unitMeasurement) }} de {{ formatQuantity(product.minimumQuantity, product.unitMeasurement) }}</span>
         </li>
       </ul>
     </div>

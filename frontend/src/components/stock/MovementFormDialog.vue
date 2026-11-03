@@ -4,81 +4,132 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import StockDialog from './StockDialog.vue'
 import { createMovementSchema, type MovementData, type MovementInput } from '../../schemas/stock.schema'
+import userService from '../../services/userService'
 import type { MovementType, Product } from '../../types/stock'
-import { formatQuantity, toDateInput, unitSymbol } from '../../utils/stock'
+import type { User } from '../../types/user'
+import { formatQuantity, unitSymbol } from '../../utils/stock'
+import { handleApiError } from '../../utils/errorHandler'
+import { stockErrorMessage } from '../../utils/stockErrors'
 
 const props = defineProps<{
   open: boolean
   type: MovementType
   product: Product | null
-  responsible: string
   submit: (data: MovementData) => Promise<void>
 }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const isEntry = computed(() => props.type === 'ENTRY')
-const today = ref(toDateInput())
-// Baixas não podem ultrapassar o estoque atual.
-const validationSchema = computed(() => toTypedSchema(createMovementSchema(isEntry.value ? undefined : props.product?.quantity ?? 0, today.value)))
-const emptyForm = (): MovementInput => ({ quantity: '', date: today.value, note: '' })
+const validationSchema = computed(() =>
+  toTypedSchema(createMovementSchema(props.type, isEntry.value ? undefined : props.product?.currentQuantity ?? 0)),
+)
+const emptyForm = (): MovementInput => ({ userId: '', quantity: '' })
 
-const { defineField, errors, handleSubmit, resetForm, isSubmitting } = useForm({ validationSchema, initialValues: emptyForm() })
+const { defineField, errors, handleSubmit, resetForm, setFieldError, isSubmitting } = useForm<MovementInput>({
+  validationSchema,
+  initialValues: emptyForm(),
+})
+const [userId, userIdProps] = defineField('userId')
 const [quantity, quantityProps] = defineField('quantity')
-const [date, dateProps] = defineField('date')
-const [note, noteProps] = defineField('note')
+
+const users = ref<User[]>([])
+const loadingUsers = ref(false)
+const usersError = ref('')
 const submitError = ref('')
 const busy = computed(() => isSubmitting.value)
-const outOfStock = computed(() => !isEntry.value && (props.product?.quantity ?? 0) <= 0)
+const outOfStock = computed(() => !isEntry.value && (props.product?.currentQuantity ?? 0) <= 0)
+let usersRequest = 0
 
-watch(() => props.open, open => {
+async function loadUsers() {
+  if (isEntry.value) return
+  const current = ++usersRequest
+  loadingUsers.value = true
+  usersError.value = ''
+  try {
+    const response = await userService.list({ page: 0, size: 100, filters: { active: true } })
+    const result = response.data?.[0]
+    if (current !== usersRequest) return
+    if (!result || !Array.isArray(result.content)) {
+      throw new Error('Resposta de usuários inválida.')
+    }
+    users.value = result.content
+  } catch (cause) {
+    if (current === usersRequest) {
+      usersError.value = stockErrorMessage(cause, 'Não foi possível carregar a lista de usuários.')
+    }
+  } finally {
+    if (current === usersRequest) loadingUsers.value = false
+  }
+}
+
+watch(() => [props.open, props.type] as const, ([open, type]) => {
   if (!open) return
-  today.value = toDateInput()
   resetForm({ values: emptyForm() })
   submitError.value = ''
+  if (type === 'CONSUMPTION') {
+    void loadUsers()
+  }
 })
 
 const onSubmit = handleSubmit(async values => {
   submitError.value = ''
   try {
-    await props.submit(values)
+    await props.submit(values as unknown as MovementData)
   } catch (cause) {
-    submitError.value = cause instanceof Error && cause.message ? cause.message : 'Não foi possível registrar a movimentação.'
+    const fallback = isEntry.value
+      ? 'Não foi possível registrar a entrada.'
+      : 'Não foi possível registrar o consumo.'
+    submitError.value = stockErrorMessage(cause, fallback)
+    handleApiError(cause, setFieldError, submitError.value)
   }
 })
 </script>
 
 <template>
-  <StockDialog :open="open" :title="isEntry ? 'Dar entrada' : 'Dar baixa'" :busy="busy" @close="emit('close')">
+  <StockDialog :open="open" :title="isEntry ? 'Registrar entrada' : 'Registrar consumo'" :busy="busy" @close="emit('close')">
     <template #subtitle>
       <p v-if="product" class="mt-1 text-[13px] text-[#74747f]">
-        <span class="font-semibold text-ink">{{ product.name }}</span> · em estoque: {{ formatQuantity(product.quantity, product.unit) }}
+        <span class="font-semibold text-ink">{{ product.name }}</span> · em estoque: {{ formatQuantity(product.currentQuantity, product.unitMeasurement) }}
       </p>
     </template>
     <form novalidate @submit.prevent="onSubmit">
       <div v-if="submitError" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">{{ submitError }}</div>
-      <p v-if="outOfStock" class="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="status">Este produto está esgotado. Registre uma entrada antes de dar baixa.</p>
-      <fieldset :disabled="busy || outOfStock" class="grid min-w-0 gap-4 sm:grid-cols-2">
+      <p v-if="outOfStock" class="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="status">Este produto está esgotado. Registre uma entrada antes de registrar consumo.</p>
+      <div v-if="!isEntry && usersError" class="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+        <p>{{ usersError }}</p>
+        <button type="button" class="mt-2 font-semibold underline" :disabled="loadingUsers" @click="loadUsers">Tentar carregar usuários novamente</button>
+      </div>
+      <fieldset :disabled="busy || outOfStock" class="grid min-w-0 gap-4">
         <legend class="sr-only">Dados da movimentação</legend>
+        <div v-if="!isEntry">
+          <label for="movement-user" class="field-label">Usuário atribuído</label>
+          <select
+            id="movement-user"
+            v-model="userId"
+            v-bind="userIdProps"
+            class="field-input"
+            :disabled="loadingUsers"
+            :aria-invalid="Boolean(errors.userId)"
+            :aria-describedby="errors.userId ? 'movement-user-error' : undefined"
+          >
+            <option value="">{{ loadingUsers ? 'Carregando usuários...' : 'Selecione um usuário' }}</option>
+            <option v-for="user in users" :key="user.id" :value="user.id">
+              {{ user.name }} ({{ user.email }})
+            </option>
+          </select>
+          <p v-if="errors.userId" id="movement-user-error" class="field-error">{{ errors.userId }}</p>
+        </div>
         <div>
-          <label for="movement-quantity" class="field-label">Quantidade{{ product ? ` (${unitSymbol(product.unit)})` : '' }}</label>
-          <input id="movement-quantity" v-model="quantity" v-bind="quantityProps" type="text" inputmode="decimal" class="field-input" :aria-invalid="Boolean(errors.quantity)" :aria-describedby="errors.quantity ? 'movement-quantity-error' : undefined" />
+          <label for="movement-quantity" class="field-label">Quantidade{{ product ? ` (${unitSymbol(product.unitMeasurement)})` : '' }}</label>
+          <input id="movement-quantity" v-model="quantity" v-bind="quantityProps" type="text" inputmode="decimal" placeholder="Ex.: 10" class="field-input" :aria-invalid="Boolean(errors.quantity)" :aria-describedby="errors.quantity ? 'movement-quantity-error' : undefined" />
           <p v-if="errors.quantity" id="movement-quantity-error" class="field-error">{{ errors.quantity }}</p>
         </div>
-        <div>
-          <label for="movement-date" class="field-label">Data da movimentação</label>
-          <input id="movement-date" v-model="date" v-bind="dateProps" type="date" :max="today" class="field-input" :aria-invalid="Boolean(errors.date)" :aria-describedby="errors.date ? 'movement-date-error' : undefined" />
-          <p v-if="errors.date" id="movement-date-error" class="field-error">{{ errors.date }}</p>
-        </div>
-        <div v-if="isEntry" class="sm:col-span-2">
-          <label for="movement-note" class="field-label">Observação (opcional)</label>
-          <textarea id="movement-note" v-model="note" v-bind="noteProps" maxlength="255" class="field-input" placeholder="Ex.: compra com o fornecedor X" :aria-invalid="Boolean(errors.note)" :aria-describedby="errors.note ? 'movement-note-error' : undefined"></textarea>
-          <p v-if="errors.note" id="movement-note-error" class="field-error">{{ errors.note }}</p>
-        </div>
       </fieldset>
-      <p class="mt-4 text-xs text-[#74747f]">Responsável: <span class="font-semibold text-[#55555e]">{{ responsible }}</span></p>
       <div class="mt-6 flex flex-wrap justify-end gap-2">
         <button type="button" class="button button-secondary" :disabled="busy" @click="emit('close')">Cancelar</button>
-        <button type="submit" class="button button-primary" :disabled="busy || outOfStock">{{ busy ? 'Salvando...' : isEntry ? 'Registrar entrada' : 'Registrar baixa' }}</button>
+        <button type="submit" class="button button-primary" :disabled="busy || outOfStock || (!isEntry && loadingUsers)">
+          {{ busy ? 'Salvando...' : isEntry ? 'Registrar entrada' : 'Registrar consumo' }}
+        </button>
       </div>
     </form>
   </StockDialog>

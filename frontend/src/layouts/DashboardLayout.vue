@@ -33,8 +33,15 @@ const navigation = computed(() => {
   const isAdmin = roles.includes('ADMIN')
   const isBarber = roles.includes('BARBEIRO') || roles.includes('BARBER')
   const canReadUsers = auth.user?.permissions?.includes('USER_READ') ?? false
+  const canReadInventory = auth.user?.permissions?.includes('INVENTORY_READ') ?? false
   const usersItem = { label: 'Usuários', icon: Users, target: '/users' }
+  const stockItem = { label: 'Estoque', icon: Package, target: '/estoque' }
   const usersNavigation = canReadUsers ? [{ title: 'Administração', items: [usersItem] }] : []
+  const clientAdminItems = [
+    ...(canReadUsers ? [usersItem] : []),
+    ...(canReadInventory ? [stockItem] : []),
+  ]
+  const clientAdminNavigation = clientAdminItems.length ? [{ title: 'Administração', items: clientAdminItems }] : []
 
   if (isAdmin) {
     return [
@@ -45,7 +52,7 @@ const navigation = computed(() => {
         { label: 'Roles', icon: ShieldCheck, target: '/roles' },
         { label: 'Permissões', icon: KeyRound, target: '/permissoes' },
         ...(canReadUsers ? [usersItem] : []),
-        { label: 'Estoque', icon: Package, target: '/estoque' },
+        ...(canReadInventory ? [stockItem] : []),
         { label: 'Serviços', icon: Scissors, target: '/services' },
         { label: 'Configurações', icon: Settings, target: '' },
       ] },
@@ -65,7 +72,7 @@ const navigation = computed(() => {
       ] },
       { title: 'Trabalho', items: [
         { label: 'Meus serviços', icon: Scissors, target: '/services' },
-        { label: 'Estoque', icon: Package, target: '/estoque' },
+        ...(canReadInventory ? [stockItem] : []),
         { label: 'Histórico', icon: History, target: '' },
       ] },
       ...usersNavigation,
@@ -87,7 +94,7 @@ const navigation = computed(() => {
       { label: 'Barbeiros', icon: Users, target: '/dashboard#equipe' },
       { label: 'Serviços', icon: Scissors, target: '/dashboard#servicos' },
     ] },
-    ...usersNavigation,
+    ...clientAdminNavigation,
     { title: 'Conta', items: [
       { label: 'Notificações', icon: Bell, target: '' },
       { label: 'Perfil', icon: UserRound, target: '' },

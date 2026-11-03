@@ -3,33 +3,72 @@ import { computed, ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import StockDialog from './StockDialog.vue'
-import { productSchema, type ProductData, type ProductInput } from '../../schemas/stock.schema'
-import { PRODUCT_CATEGORIES, STOCK_UNITS } from '../../types/stock'
+import {
+  createProductSchema,
+  updateProductSchema,
+  type CreateProductData,
+  type CreateProductInput,
+  type UpdateProductData,
+} from '../../schemas/stock.schema'
+import { STOCK_UNITS, type Product } from '../../types/stock'
 import { unitSymbol } from '../../utils/stock'
+import { handleApiError } from '../../utils/errorHandler'
+import { stockErrorMessage } from '../../utils/stockErrors'
 
 const props = defineProps<{
   open: boolean
-  submit: (data: ProductData) => Promise<void>
+  product?: Product | null
+  submit: (data: CreateProductData | UpdateProductData) => Promise<void>
 }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
-const emptyForm = (): ProductInput => ({ name: '', category: '', unit: '', initialQuantity: '0', minimum: '' })
+const isEditing = computed(() => Boolean(props.product))
 
-const { defineField, errors, handleSubmit, resetForm, isSubmitting } = useForm({
-  validationSchema: toTypedSchema(productSchema),
+const emptyForm = (): CreateProductInput => ({
+  name: '',
+  description: '',
+  unitMeasurement: '',
+  priceCost: '',
+  initialQuantity: '0',
+  minimumQuantity: '',
+  active: true,
+})
+
+function productToForm(product: Product): CreateProductInput {
+  return {
+    name: product.name,
+    description: product.description ?? '',
+    unitMeasurement: product.unitMeasurement,
+    priceCost: String(product.priceCost),
+    initialQuantity: String(product.currentQuantity),
+    minimumQuantity: String(product.minimumQuantity),
+    active: product.active,
+  }
+}
+
+const validationSchema = computed(() =>
+  toTypedSchema(isEditing.value ? updateProductSchema : createProductSchema),
+)
+
+const { defineField, errors, handleSubmit, resetForm, setFieldError, isSubmitting } = useForm({
+  validationSchema,
   initialValues: emptyForm(),
 })
+
 const [name, nameProps] = defineField('name')
-const [category, categoryProps] = defineField('category')
-const [unit, unitProps] = defineField('unit')
+const [description, descriptionProps] = defineField('description')
+const [unitMeasurement, unitMeasurementProps] = defineField('unitMeasurement')
+const [priceCost, priceCostProps] = defineField('priceCost')
 const [initialQuantity, initialQuantityProps] = defineField('initialQuantity')
-const [minimum, minimumProps] = defineField('minimum')
+const [minimumQuantity, minimumQuantityProps] = defineField('minimumQuantity')
+const [active, activeProps] = defineField('active')
+
 const submitError = ref('')
 const busy = computed(() => isSubmitting.value)
 
-watch(() => props.open, open => {
+watch(() => [props.open, props.product] as const, ([open, product]) => {
   if (open) {
-    resetForm({ values: emptyForm() })
+    resetForm({ values: product ? productToForm(product) : emptyForm() })
     submitError.value = ''
   }
 })
@@ -39,53 +78,67 @@ const onSubmit = handleSubmit(async values => {
   try {
     await props.submit(values)
   } catch (cause) {
-    submitError.value = cause instanceof Error && cause.message ? cause.message : 'Não foi possível cadastrar o produto.'
+    const fallback = isEditing.value
+      ? 'Não foi possível atualizar o produto.'
+      : 'Não foi possível cadastrar o produto.'
+    submitError.value = stockErrorMessage(cause, fallback)
+    handleApiError(cause, setFieldError, submitError.value)
   }
 })
 </script>
 
 <template>
-  <StockDialog :open="open" title="Adicionar item" :busy="busy" width-class="max-w-[600px]" @close="emit('close')">
+  <StockDialog :open="open" :title="isEditing ? 'Editar produto' : 'Adicionar produto'" :busy="busy" width-class="max-w-[600px]" @close="emit('close')">
     <form novalidate @submit.prevent="onSubmit">
       <div v-if="submitError" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">{{ submitError }}</div>
       <fieldset :disabled="busy" class="grid min-w-0 gap-4 sm:grid-cols-2">
         <legend class="sr-only">Dados do produto</legend>
         <div class="sm:col-span-2">
           <label for="product-name" class="field-label">Nome</label>
-          <input id="product-name" v-model="name" v-bind="nameProps" type="text" maxlength="100" class="field-input" placeholder="Ex.: Pomada modeladora" :aria-invalid="Boolean(errors.name)" :aria-describedby="errors.name ? 'product-name-error' : undefined" />
+          <input id="product-name" v-model="name" v-bind="nameProps" type="text" maxlength="100" class="field-input" placeholder="Ex.: Shampoo Profissional" :aria-invalid="Boolean(errors.name)" :aria-describedby="errors.name ? 'product-name-error' : undefined" />
           <p v-if="errors.name" id="product-name-error" class="field-error">{{ errors.name }}</p>
         </div>
-        <div>
-          <label for="product-category" class="field-label">Categoria</label>
-          <select id="product-category" v-model="category" v-bind="categoryProps" class="field-input" :aria-invalid="Boolean(errors.category)" :aria-describedby="errors.category ? 'product-category-error' : undefined">
-            <option value="">Selecione uma categoria</option>
-            <option v-for="option in PRODUCT_CATEGORIES" :key="option" :value="option">{{ option }}</option>
-          </select>
-          <p v-if="errors.category" id="product-category-error" class="field-error">{{ errors.category }}</p>
+        <div class="sm:col-span-2">
+          <label for="product-description" class="field-label">Descrição</label>
+          <textarea id="product-description" v-model="description" v-bind="descriptionProps" maxlength="255" class="field-input" placeholder="Ex.: Shampoo para uso profissional em barbearias" :aria-invalid="Boolean(errors.description)" :aria-describedby="errors.description ? 'product-description-error' : undefined"></textarea>
+          <p v-if="errors.description" id="product-description-error" class="field-error">{{ errors.description }}</p>
         </div>
         <div>
-          <label for="product-unit" class="field-label">Unidade</label>
-          <select id="product-unit" v-model="unit" v-bind="unitProps" class="field-input" :aria-invalid="Boolean(errors.unit)" :aria-describedby="errors.unit ? 'product-unit-error' : undefined">
+          <label for="product-unit" class="field-label">Unidade de medida</label>
+          <select id="product-unit" v-model="unitMeasurement" v-bind="unitMeasurementProps" class="field-input" :aria-invalid="Boolean(errors.unitMeasurement)" :aria-describedby="errors.unitMeasurement ? 'product-unit-error' : undefined">
             <option value="">Selecione uma unidade</option>
             <option v-for="option in STOCK_UNITS" :key="option.value" :value="option.value">{{ option.label }} ({{ unitSymbol(option.value) }})</option>
           </select>
-          <p v-if="errors.unit" id="product-unit-error" class="field-error">{{ errors.unit }}</p>
+          <p v-if="errors.unitMeasurement" id="product-unit-error" class="field-error">{{ errors.unitMeasurement }}</p>
         </div>
         <div>
+          <label for="product-price-cost" class="field-label">Preço de custo (R$)</label>
+          <input id="product-price-cost" v-model="priceCost" v-bind="priceCostProps" type="text" inputmode="decimal" class="field-input" placeholder="Ex.: 25,90" :aria-invalid="Boolean(errors.priceCost)" :aria-describedby="errors.priceCost ? 'product-price-cost-error' : undefined" />
+          <p v-if="errors.priceCost" id="product-price-cost-error" class="field-error">{{ errors.priceCost }}</p>
+        </div>
+        <div v-if="!isEditing">
           <label for="product-initial" class="field-label">Quantidade inicial</label>
           <input id="product-initial" v-model="initialQuantity" v-bind="initialQuantityProps" type="text" inputmode="decimal" class="field-input" :aria-invalid="Boolean(errors.initialQuantity)" :aria-describedby="errors.initialQuantity ? 'product-initial-error' : undefined" />
           <p v-if="errors.initialQuantity" id="product-initial-error" class="field-error">{{ errors.initialQuantity }}</p>
         </div>
         <div>
           <label for="product-minimum" class="field-label">Estoque mínimo</label>
-          <input id="product-minimum" v-model="minimum" v-bind="minimumProps" type="text" inputmode="decimal" class="field-input" placeholder="Ex.: 5" :aria-invalid="Boolean(errors.minimum)" :aria-describedby="errors.minimum ? 'product-minimum-error' : 'product-minimum-help'" />
-          <p v-if="errors.minimum" id="product-minimum-error" class="field-error">{{ errors.minimum }}</p>
+          <input id="product-minimum" v-model="minimumQuantity" v-bind="minimumQuantityProps" type="text" inputmode="decimal" class="field-input" placeholder="Ex.: 5" :aria-invalid="Boolean(errors.minimumQuantity)" :aria-describedby="errors.minimumQuantity ? 'product-minimum-error' : 'product-minimum-help'" />
+          <p v-if="errors.minimumQuantity" id="product-minimum-error" class="field-error">{{ errors.minimumQuantity }}</p>
           <p v-else id="product-minimum-help" class="mt-1.5 text-xs text-[#74747f]">Abaixo desse valor o item entra em alerta.</p>
+        </div>
+        <div v-if="!isEditing">
+          <label for="product-active" class="field-label">Status</label>
+          <select id="product-active" v-model="active" v-bind="activeProps" class="field-input" :aria-invalid="Boolean(errors.active)">
+            <option :value="true">Ativo</option>
+            <option :value="false">Inativo</option>
+          </select>
+          <p v-if="errors.active" class="field-error">{{ errors.active }}</p>
         </div>
       </fieldset>
       <div class="mt-6 flex flex-wrap justify-end gap-2">
         <button type="button" class="button button-secondary" :disabled="busy" @click="emit('close')">Cancelar</button>
-        <button type="submit" class="button button-primary" :disabled="busy">{{ busy ? 'Salvando...' : 'Salvar item' }}</button>
+        <button type="submit" class="button button-primary" :disabled="busy">{{ busy ? 'Salvando...' : isEditing ? 'Salvar alterações' : 'Salvar produto' }}</button>
       </div>
     </form>
   </StockDialog>

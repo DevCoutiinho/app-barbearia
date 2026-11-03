@@ -8,10 +8,9 @@ export const STOCK_UNITS: ReadonlyArray<{ value: StockUnit; label: string }> = [
   { value: 'L', label: 'Litros' },
 ]
 
-export const PRODUCT_CATEGORIES = ['Cabelo', 'Barba', 'Higiene', 'Descartáveis', 'Ferramentas', 'Outros'] as const
-
 export type StockStatus = 'OUT' | 'LOW' | 'OK'
-export type MovementType = 'ENTRY' | 'EXIT'
+export const MOVEMENT_TYPE_VALUES = ['CONSUMPTION', 'ENTRY'] as const
+export type MovementType = typeof MOVEMENT_TYPE_VALUES[number]
 
 export interface StockUser {
   id: string
@@ -21,11 +20,55 @@ export interface StockUser {
 export interface Product {
   id: string
   name: string
-  category: string
-  unit: StockUnit
-  quantity: number
-  minimum: number
+  description: string | null
+  minimumQuantity: number
+  currentQuantity: number
+  unitMeasurement: StockUnit
+  priceCost: number
+  active: boolean
   updatedAt: string
+}
+
+export interface ProductFilters {
+  name?: string
+  description?: string
+  unitMeasurement?: StockUnit
+  priceCost?: number
+  active?: boolean
+}
+
+export interface ProductListParams {
+  page?: number
+  size?: number
+  sort?: string | string[]
+  filters?: ProductFilters
+}
+
+export interface CreateProductPayload {
+  name: string
+  description: string
+  minimumQuantity: number
+  initialQuantity: number
+  unitMeasurement: StockUnit
+  priceCost: number
+  active: boolean
+}
+
+export interface UpdateProductPayload {
+  name: string
+  description: string
+  minimumQuantity: number
+  unitMeasurement: StockUnit
+  priceCost: number
+}
+
+export interface EntryMovementPayload {
+  quantity: number
+}
+
+export interface OutputMovementPayload {
+  userId: string
+  quantity: number
 }
 
 export interface StockMovement {
@@ -34,25 +77,13 @@ export interface StockMovement {
   productName: string
   type: MovementType
   quantity: number
-  // Data informada pelo usuário (YYYY-MM-DD), não o instante do registro.
   date: string
-  note: string | null
-  user: StockUser
   createdAt: string
+  user: StockUser | null
 }
 
-export interface CreateProductPayload {
-  name: string
-  category: string
-  unit: StockUnit
-  initialQuantity: number
-  minimum: number
-}
-
-export interface MovementPayload {
-  quantity: number
-  date: string
-  note?: string
-  // Responsável vindo da sessão logada.
-  user: StockUser
+export interface MovementListParams {
+  page?: number
+  size?: number
+  sort?: string | string[]
 }

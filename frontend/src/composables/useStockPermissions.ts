@@ -3,13 +3,13 @@ import { useAuthStore } from '../stores/auth'
 
 type SessionUser = { roles?: string[]; permissions?: string[] } | null | undefined
 
-/** Admin gerencia o estoque; barbeiro (ou quem tiver INVENTORY_READ) apenas consulta. */
 export function stockAccess(user: SessionUser) {
-  const roles = user?.roles ?? []
-  const isAdmin = roles.includes('ADMIN')
-  const isBarber = roles.includes('BARBER') || roles.includes('BARBEIRO')
-  const canView = isAdmin || isBarber || (user?.permissions?.includes('INVENTORY_READ') ?? false)
-  return { canView, canManage: isAdmin }
+  const permissions = user?.permissions ?? []
+  const canView = permissions.includes('INVENTORY_READ')
+  const canCreate = permissions.includes('INVENTORY_CREATE')
+  const canUpdate = permissions.includes('INVENTORY_UPDATE')
+  const canManage = canCreate || canUpdate
+  return { canView, canCreate, canUpdate, canManage }
 }
 
 export function useStockPermissions() {
@@ -17,6 +17,8 @@ export function useStockPermissions() {
   const access = computed(() => stockAccess(auth.user))
   return {
     canView: computed(() => access.value.canView),
+    canCreate: computed(() => access.value.canCreate),
+    canUpdate: computed(() => access.value.canUpdate),
     canManage: computed(() => access.value.canManage),
   }
 }
