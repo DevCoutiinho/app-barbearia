@@ -2,10 +2,7 @@ package dev.barbershop.api.barberservice.service;
 
 import dev.barbershop.api.barber.entity.Barber;
 import dev.barbershop.api.barber.repository.BarberRepository;
-import dev.barbershop.api.barberservice.dto.BarberServiceCreateDTO;
-import dev.barbershop.api.barberservice.dto.BarberServiceFilterDTO;
-import dev.barbershop.api.barberservice.dto.BarberServiceResponseDTO;
-import dev.barbershop.api.barberservice.dto.BarberServiceUpdateDTO;
+import dev.barbershop.api.barberservice.dto.*;
 import dev.barbershop.api.barberservice.entity.BarberService;
 import dev.barbershop.api.barberservice.entity.ServiceCategory;
 import dev.barbershop.api.barberservice.entity.ServiceImage;
@@ -23,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -38,8 +36,9 @@ public class BarberServiceApplicationService {
     private final ServiceCategoryRepository categoryRepository;
 
 
+
+
     @PreAuthorize("hasRole('BARBER')")
-    @Transactional
     public Page<BarberServiceResponseDTO> findAll(UUID userId, BarberServiceFilterDTO dto, Pageable pageable) {
         Specification<BarberService> spec = BarberServiceSpecification.findByFilter(userId, dto);
 
@@ -111,6 +110,10 @@ public class BarberServiceApplicationService {
 
         repository.delete(service);
 
+    }
+
+    public List<BarberServiceCatalogDTO> findAllCatalog(){
+        return repository.findByServicesActive();
     }
 
     private ServiceImage createServiceImage(String url, String altText, boolean isCover) {
