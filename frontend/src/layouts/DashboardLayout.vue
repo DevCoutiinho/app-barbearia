@@ -36,6 +36,7 @@ const navigation = computed(() => {
   const canReadInventory = auth.user?.permissions?.includes('INVENTORY_READ') ?? false
   const usersItem = { label: 'Usuários', icon: Users, target: '/users' }
   const stockItem = { label: 'Estoque', icon: Package, target: '/estoque' }
+  const agendaItem = { label: 'Minha agenda', icon: CalendarDays, target: '/agenda' }
   const usersNavigation = canReadUsers ? [{ title: 'Administração', items: [usersItem] }] : []
   const clientAdminItems = [
     ...(canReadUsers ? [usersItem] : []),
@@ -67,7 +68,7 @@ const navigation = computed(() => {
     return [
       { title: 'Meu dia', items: [
         { label: 'Dashboard', icon: LayoutDashboard, target: '/dashboard' },
-        { label: 'Minha agenda', icon: CalendarDays, target: '/dashboard#agenda' },
+        agendaItem,
         { label: 'Agendamentos', icon: ClipboardList, target: '/dashboard#agenda' },
       ] },
       { title: 'Trabalho', items: [
@@ -86,7 +87,7 @@ const navigation = computed(() => {
   return [
     { title: '', items: [
       { label: 'Início', icon: Home, target: '/dashboard' },
-      { label: 'Agendar', icon: CalendarPlus, target: '/dashboard#agenda' },
+      { label: 'Agendar', icon: CalendarPlus, target: '/agendar' },
       { label: 'Meus agendamentos', icon: ClipboardList, target: '/dashboard#agenda' },
       { label: 'Histórico', icon: History, target: '' },
     ] },
