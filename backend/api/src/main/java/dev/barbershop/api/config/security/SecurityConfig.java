@@ -89,6 +89,9 @@ public class SecurityConfig {
 
                         .requestMatchers("/service-categories/**","/barber-services/**").hasRole("BARBER")
 
+                        // Agenda do próprio barbeiro (grade semanal e bloqueios)
+                        .requestMatchers("/barbers/me/**").hasRole("BARBER")
+
                         .anyRequest().authenticated()
                 )
                 .cors(cors -> cors
