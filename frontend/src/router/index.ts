@@ -51,8 +51,9 @@ const router = createRouter({
                 const auth = useAuthStore()
                 if (!auth.initialized) auth.restoreSession()
                 if (!auth.isAuthenticated) return { name: 'login' }
-                // A API só expõe a agenda do próprio barbeiro (/barbers/me); o administrador não usa essa tela.
-                if (!isBarber(auth.user) || auth.user?.roles?.includes('ADMIN')) return { name: 'dashboard' }
+                // A API só expõe a agenda do próprio barbeiro (/barbers/me), que exige a role BARBER
+                // (inclusive para um administrador que também seja barbeiro).
+                if (!isBarber(auth.user)) return { name: 'dashboard' }
             }
         },
         {

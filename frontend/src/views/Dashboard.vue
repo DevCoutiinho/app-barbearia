@@ -74,16 +74,29 @@ const navigation = computed(() => {
   const clientAdminNavigation = clientAdminItems.length ? [{ title: 'Administração', items: clientAdminItems }] : []
 
   if (isAdmin) {
+    // Admin que também é barbeiro ganha os cadastros de barbeiro (agenda, serviços) além da administração.
+    const barberNavigation = isBarber
+      ? [
+          { title: 'Meu dia', items: [
+            agendaItem,
+            { label: 'Agendamentos', icon: ClipboardList, target: '#agenda' },
+          ] },
+          { title: 'Trabalho', items: [
+            { label: 'Meus serviços', icon: Scissors, target: '/services' },
+            { label: 'Histórico', icon: History, target: '' },
+          ] },
+        ]
+      : []
     return [
       { title: '', items: [
         { label: 'Dashboard', icon: LayoutDashboard, target: '#dashboard-content' },
       ] },
+      ...barberNavigation,
       { title: 'Administração', items: [
         { label: 'Roles', icon: ShieldCheck, target: '/roles' },
         { label: 'Permissões', icon: KeyRound, target: '/permissoes' },
         ...(canReadUsers ? [usersItem] : []),
         ...(canReadInventory ? [stockItem] : []),
-        { label: 'Serviços', icon: Scissors, target: '/services' },
         { label: 'Configurações', icon: Settings, target: '' },
       ] },
       { title: 'Conta', items: [
