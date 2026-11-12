@@ -4,6 +4,7 @@ import Register from "../views/auth/Register.vue";
 import Home from "../views/Home.vue";
 import { useAuthStore } from "../stores/auth";
 import { stockAccess } from "../composables/useStockPermissions";
+import { isBarber } from "../utils/agenda";
 
 const router = createRouter({
     history: createWebHistory(),
@@ -40,6 +41,29 @@ const router = createRouter({
                 if (!auth.isAuthenticated) return { name: 'login' }
                 // Sem permissão de leitura, nem carrega a tela.
                 if (!stockAccess(auth.user).canView) return { name: 'dashboard' }
+            }
+        },
+        {
+            path: '/agenda',
+            name: 'agenda',
+            component: () => import('../views/BarberAgenda.vue'),
+            beforeEnter: () => {
+                const auth = useAuthStore()
+                if (!auth.initialized) auth.restoreSession()
+                if (!auth.isAuthenticated) return { name: 'login' }
+                // A API só expõe a agenda do próprio barbeiro (/barbers/me), que exige a role BARBER
+                // (inclusive para um administrador que também seja barbeiro).
+                if (!isBarber(auth.user)) return { name: 'dashboard' }
+            }
+        },
+        {
+            path: '/agendar',
+            name: 'booking',
+            component: () => import('../views/ClientBooking.vue'),
+            beforeEnter: () => {
+                const auth = useAuthStore()
+                if (!auth.initialized) auth.restoreSession()
+                if (!auth.isAuthenticated) return { name: 'login' }
             }
         },
         {

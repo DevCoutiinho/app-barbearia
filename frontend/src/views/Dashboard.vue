@@ -65,6 +65,7 @@ const navigation = computed(() => {
   const canReadInventory = auth.user?.permissions?.includes('INVENTORY_READ') ?? false
   const usersItem = { label: 'Usuários', icon: Users, target: '/users' }
   const stockItem = { label: 'Estoque', icon: Package, target: '/estoque' }
+  const agendaItem = { label: 'Minha agenda', icon: CalendarDays, target: '/agenda' }
   const usersNavigation = canReadUsers ? [{ title: 'Administração', items: [usersItem] }] : []
   const clientAdminItems = [
     ...(canReadUsers ? [usersItem] : []),
@@ -73,16 +74,29 @@ const navigation = computed(() => {
   const clientAdminNavigation = clientAdminItems.length ? [{ title: 'Administração', items: clientAdminItems }] : []
 
   if (isAdmin) {
+    // Admin que também é barbeiro ganha os cadastros de barbeiro (agenda, serviços) além da administração.
+    const barberNavigation = isBarber
+      ? [
+          { title: 'Meu dia', items: [
+            agendaItem,
+            { label: 'Agendamentos', icon: ClipboardList, target: '#agenda' },
+          ] },
+          { title: 'Trabalho', items: [
+            { label: 'Meus serviços', icon: Scissors, target: '/services' },
+            { label: 'Histórico', icon: History, target: '' },
+          ] },
+        ]
+      : []
     return [
       { title: '', items: [
         { label: 'Dashboard', icon: LayoutDashboard, target: '#dashboard-content' },
       ] },
+      ...barberNavigation,
       { title: 'Administração', items: [
         { label: 'Roles', icon: ShieldCheck, target: '/roles' },
         { label: 'Permissões', icon: KeyRound, target: '/permissoes' },
         ...(canReadUsers ? [usersItem] : []),
         ...(canReadInventory ? [stockItem] : []),
-        { label: 'Serviços', icon: Scissors, target: '/services' },
         { label: 'Configurações', icon: Settings, target: '' },
       ] },
       { title: 'Conta', items: [
@@ -96,7 +110,7 @@ const navigation = computed(() => {
     return [
       { title: 'Meu dia', items: [
         { label: 'Dashboard', icon: LayoutDashboard, target: '#dashboard-content' },
-        { label: 'Minha agenda', icon: CalendarDays, target: '#agenda' },
+        agendaItem,
         { label: 'Agendamentos', icon: ClipboardList, target: '#agenda' },
       ] },
       { title: 'Trabalho', items: [
@@ -115,7 +129,7 @@ const navigation = computed(() => {
   return [
     { title: '', items: [
       { label: 'Início', icon: Home, target: '#dashboard-content' },
-      { label: 'Agendar', icon: CalendarPlus, target: '#agenda' },
+      { label: 'Agendar', icon: CalendarPlus, target: '/agendar' },
       { label: 'Meus agendamentos', icon: ClipboardList, target: '#agenda' },
       { label: 'Histórico', icon: History, target: '' },
     ] },
