@@ -8,6 +8,9 @@ import java.util.UUID;
 
 public record SchedulingCreateDTO(
 
+        @Schema(description = "ID do barbeiro escolhido. Se informado, o sistema valida se o serviço pertence a ele e se o barbeiro está ativo.", nullable = true)
+        UUID barberId,
+
         @NotNull(message = "O serviço é obrigatório")
         UUID serviceId,
 

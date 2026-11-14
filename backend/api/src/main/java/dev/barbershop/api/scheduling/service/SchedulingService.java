@@ -2,17 +2,24 @@ package dev.barbershop.api.scheduling.service;
 
 import dev.barbershop.api.availability.domain.TimeInterval;
 import dev.barbershop.api.availability.service.AgendaGuard;
+import dev.barbershop.api.barber.entity.Barber;
 import dev.barbershop.api.barberservice.entity.BarberService;
 import dev.barbershop.api.barberservice.repository.BarberServiceRepository;
 import dev.barbershop.api.client.entity.Client;
 import dev.barbershop.api.client.repository.ClientRepository;
 import dev.barbershop.api.common.exception.ResourceNotFoundException;
 import dev.barbershop.api.config.scheduling.SchedulingProperties;
+import dev.barbershop.api.scheduling.dto.BarberAppointmentHistoryDTO;
+import dev.barbershop.api.scheduling.dto.BarberSchedulingFilterDTO;
 import dev.barbershop.api.scheduling.dto.SchedulingCreateDTO;
 import dev.barbershop.api.scheduling.dto.SchedulingResponseDTO;
 import dev.barbershop.api.scheduling.entity.Scheduling;
 import dev.barbershop.api.scheduling.repository.SchedulingRepository;
+import dev.barbershop.api.scheduling.specification.SchedulingSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -32,6 +39,14 @@ public class SchedulingService {
     private final BarberServiceRepository barberServiceRepository;
     private final SchedulingProperties properties;
     private final Clock clock;
+
+    @PreAuthorize("isAuthenticated()")
+    public java.util.List<SchedulingResponseDTO> findMySchedulings(UUID userId) {
+        return repository.findByClientUserIdOrderByScheduledAtDesc(userId)
+                .stream()
+                .map(this::toDTO)
+                .toList();
+    }
 
     /**
      * Cria um agendamento garantindo, sob o lock da agenda do barbeiro, que o intervalo inteiro:
@@ -54,6 +69,14 @@ public class SchedulingService {
                 .filter(BarberService::getActive)
                 .orElseThrow(() -> new ResourceNotFoundException("Serviço não encontrado ou inativo"));
 
+        if (dto.barberId() != null && !service.getBarber().getId().equals(dto.barberId())) {
+            throw new IllegalArgumentException("O serviço selecionado não pertence ao barbeiro informado");
+        }
+
+        if (!service.getBarber().getUser().isActive()) {
+            throw new IllegalStateException("O barbeiro selecionado está inativo no sistema");
+        }
+
         Instant start = dto.startAt().toInstant();
         validateBookingWindow(start);
 
@@ -65,6 +88,7 @@ public class SchedulingService {
         guard.assertWithinWorkingHours(barberId, period);
         guard.assertSlotNotBlocked(barberId, period);
         guard.assertSlotFreeOfBookings(barberId, period);
+        guard.assertClientFreeOfBookings(client.getId(), period);
 
         Scheduling scheduling = guard.persistGuarded(
                 () -> repository.saveAndFlush(Scheduling.book(client, service, period))
@@ -76,6 +100,7 @@ public class SchedulingService {
     /**
      * Cancelar apenas libera tempo na agenda, então não precisa do lock. Pode ser feito pelo cliente
      * dono do agendamento ou pelo barbeiro responsável.
+     * Não permite cancelar agendamentos passados ou já finalizados/cancelados.
      */
     @PreAuthorize("isAuthenticated()")
     @Transactional
@@ -83,16 +108,96 @@ public class SchedulingService {
         Scheduling scheduling = repository.findById(schedulingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Agendamento não encontrado"));
 
+        assertUserHasAccess(scheduling, userId);
+
+        scheduling.cancel(clock.instant());
+
+        return toDTO(scheduling);
+    }
+
+    /**
+     * Remarcação atômica de agendamento:
+     * <ul>
+     *     <li>Valida permissão e se o agendamento não é passado ou finalizado;</li>
+     *     <li>Adquire lock pessimista da agenda do barbeiro;</li>
+     *     <li>Garante que o novo horário está dentro da jornada e sem bloqueios;</li>
+     *     <li>Garante que nenhum outro agendamento ocupa o novo horário (ignora a si mesmo);</li>
+     *     <li>Preserva o horário anterior para auditoria e incrementa o contador de remarcações;</li>
+     *     <li>Se qualquer validação falhar, a transação reverte e o agendamento original fica intacto.</li>
+     * </ul>
+     */
+    @PreAuthorize("isAuthenticated()")
+    @Transactional
+    public SchedulingResponseDTO reschedule(UUID userId, UUID schedulingId, dev.barbershop.api.scheduling.dto.SchedulingRescheduleDTO dto) {
+        Scheduling scheduling = repository.findById(schedulingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Agendamento não encontrado"));
+
+        assertUserHasAccess(scheduling, userId);
+
+        Instant now = clock.instant();
+        scheduling.validateCanModify(now);
+
+        Instant newStart = dto.newStartAt().toInstant();
+        validateBookingWindow(newStart);
+
+        TimeInterval newPeriod = new TimeInterval(newStart, newStart.plus(Duration.ofMinutes(scheduling.getDurationTime())));
+        UUID barberId = scheduling.getBarber().getId();
+
+        guard.lockAgenda(barberId);
+
+        guard.assertWithinWorkingHours(barberId, newPeriod);
+        guard.assertSlotNotBlocked(barberId, newPeriod);
+        guard.assertSlotFreeOfBookingsExcept(barberId, newPeriod, scheduling.getId());
+        guard.assertClientFreeOfBookingsExcept(scheduling.getClient().getId(), newPeriod, scheduling.getId());
+
+        scheduling.reschedule(newPeriod, now);
+
+        guard.persistGuarded(() -> repository.saveAndFlush(scheduling));
+
+        return toDTO(scheduling);
+    }
+
+    /**
+     * Finaliza um atendimento realizado (muda para COMPLETED).
+     */
+    @PreAuthorize("isAuthenticated()")
+    @Transactional
+    public SchedulingResponseDTO complete(UUID userId, UUID schedulingId) {
+        Scheduling scheduling = repository.findById(schedulingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Agendamento não encontrado"));
+
+        assertUserHasAccess(scheduling, userId);
+
+        scheduling.complete();
+
+        return toDTO(scheduling);
+    }
+
+    /**
+     * Retorna todos os agendamentos do dia do barbeiro logado.
+     */
+    @PreAuthorize("hasAnyRole('BARBER', 'BARBEIRO')")
+    public java.util.List<BarberAppointmentHistoryDTO> findBarberDailySchedulings(UUID userId, LocalDate date) {
+        Barber barber = guard.findBarberByUserId(userId);
+        ZoneId zone = guard.zone();
+        LocalDate targetDate = (date != null) ? date : LocalDate.now(clock.withZone(zone));
+
+        Instant dayStart = targetDate.atStartOfDay(zone).toInstant();
+        Instant dayEnd = targetDate.atTime(LocalTime.MAX).atZone(zone).toInstant();
+
+        return repository.findDailyByBarber(barber.getId(), dayStart, dayEnd)
+                .stream()
+                .map(scheduling -> toHistoryDTO(scheduling, zone))
+                .toList();
+    }
+
+    private void assertUserHasAccess(Scheduling scheduling, UUID userId) {
         boolean isOwnerClient = scheduling.getClient().getUser().getId().equals(userId);
         boolean isOwnerBarber = scheduling.getBarber().getUser().getId().equals(userId);
 
         if (!isOwnerClient && !isOwnerBarber) {
             throw new AccessDeniedException("Agendamento pertence a outro usuário");
         }
-
-        scheduling.cancel();
-
-        return toDTO(scheduling);
     }
 
     private void validateBookingWindow(Instant start) {
@@ -109,6 +214,36 @@ public class SchedulingService {
         }
     }
 
+    @PreAuthorize("hasAnyRole('BARBER', 'BARBEIRO')")
+    public Page<BarberAppointmentHistoryDTO> findBarberHistory(
+            UUID userId,
+            BarberSchedulingFilterDTO filters,
+            Pageable pageable
+    ) {
+        Barber barber = guard.findBarberByUserId(userId);
+        ZoneId zone = guard.zone();
+
+        Specification<Scheduling> spec = SchedulingSpecification.forBarberWithFilters(barber.getId(), filters, zone);
+
+        return repository.findAll(spec, pageable)
+                .map(scheduling -> toHistoryDTO(scheduling, zone));
+    }
+
+    private BarberAppointmentHistoryDTO toHistoryDTO(Scheduling scheduling, ZoneId zone) {
+        return new BarberAppointmentHistoryDTO(
+                scheduling.getId(),
+                scheduling.getClient().getId(),
+                scheduling.getClient().getUser().getName(),
+                scheduling.getService().getId(),
+                scheduling.getService().getName(),
+                scheduling.getStatus(),
+                scheduling.getScheduledAt().atZone(zone).toOffsetDateTime(),
+                scheduling.getEndsAt().atZone(zone).toOffsetDateTime(),
+                scheduling.getDurationTime(),
+                scheduling.getFinalPrice()
+        );
+    }
+
     private SchedulingResponseDTO toDTO(Scheduling scheduling) {
         ZoneId zone = guard.zone();
         return new SchedulingResponseDTO(
@@ -118,8 +253,12 @@ public class SchedulingService {
                 scheduling.getService().getName(),
                 scheduling.getScheduledAt().atZone(zone).toOffsetDateTime(),
                 scheduling.getEndsAt().atZone(zone).toOffsetDateTime(),
+                scheduling.getDurationTime(),
                 scheduling.getStatus(),
-                scheduling.getFinalPrice()
+                scheduling.getFinalPrice(),
+                scheduling.getPreviousScheduledAt() != null ? scheduling.getPreviousScheduledAt().atZone(zone).toOffsetDateTime() : null,
+                scheduling.getPreviousEndsAt() != null ? scheduling.getPreviousEndsAt().atZone(zone).toOffsetDateTime() : null,
+                scheduling.getRescheduleCount()
         );
     }
 }

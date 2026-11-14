@@ -47,9 +47,11 @@ public class AgendaGuard {
     public static final String BLOCK_CONFLICT =
             "Já existe um bloqueio que se sobrepõe a este período.";
     public static final String SLOT_UNAVAILABLE =
-            "Este horário não está mais disponível. Escolha outro horário.";
+            "Este horário acabou de ser reservado por outra pessoa. Por favor, escolha outro.";
     public static final String SLOT_BLOCKED =
             "O barbeiro bloqueou este horário. Escolha outro horário.";
+    public static final String CLIENT_BOOKING_CONFLICT =
+            "Você já possui um agendamento ativo neste mesmo período.";
     public static final String OUTSIDE_WORKING_HOURS =
             "O horário solicitado está fora do horário de trabalho do barbeiro.";
 
@@ -99,6 +101,47 @@ public class AgendaGuard {
     public void assertSlotFreeOfBookings(UUID barberId, TimeInterval period) {
         if (hasActiveBooking(barberId, period)) {
             throw new ResourceConflictException(SLOT_UNAVAILABLE);
+        }
+    }
+
+    /** Agendamento x Agendamento ignorando um ID de agendamento (durante remarcação). */
+    public void assertSlotFreeOfBookingsExcept(UUID barberId, TimeInterval period, UUID excludedSchedulingId) {
+        boolean hasOverlap = schedulingRepository.existsOverlappingExcept(
+                barberId,
+                period.start(),
+                period.end(),
+                SchedulingStatus.occupyingStatuses(),
+                excludedSchedulingId
+        );
+        if (hasOverlap) {
+            throw new ResourceConflictException(SLOT_UNAVAILABLE);
+        }
+    }
+
+    /** Garante que o cliente não tem outro agendamento simultâneo (mesmo com outro barbeiro). */
+    public void assertClientFreeOfBookings(UUID clientId, TimeInterval period) {
+        boolean hasOverlap = schedulingRepository.existsOverlappingForClient(
+                clientId,
+                period.start(),
+                period.end(),
+                SchedulingStatus.occupyingStatuses()
+        );
+        if (hasOverlap) {
+            throw new ResourceConflictException(CLIENT_BOOKING_CONFLICT);
+        }
+    }
+
+    /** Validação de agenda do cliente ignorando um agendamento específico (durante remarcação). */
+    public void assertClientFreeOfBookingsExcept(UUID clientId, TimeInterval period, UUID excludedSchedulingId) {
+        boolean hasOverlap = schedulingRepository.existsOverlappingForClientExcept(
+                clientId,
+                period.start(),
+                period.end(),
+                SchedulingStatus.occupyingStatuses(),
+                excludedSchedulingId
+        );
+        if (hasOverlap) {
+            throw new ResourceConflictException(CLIENT_BOOKING_CONFLICT);
         }
     }
 

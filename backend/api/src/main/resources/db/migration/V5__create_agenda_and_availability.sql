@@ -103,22 +103,26 @@ CREATE TABLE schedule_blocks
 );
 
 -- -------------------------------------------------------------------------------------
--- 3. Agendamentos: passam a registrar o fim do atendimento.
---    ends_at é um "retrato" da duração do serviço no momento da reserva: alterar a
---    duração do serviço ou a grade semanal depois NÃO altera agendamentos existentes.
+-- 3. Agendamentos: passam a registrar a duração e o fim do atendimento no momento da reserva.
+--    ends_at e duration_time são "retratos" do serviço no momento da reserva: alterar a
+--    duração do serviço ou o preço depois NÃO altera agendamentos existentes.
 -- -------------------------------------------------------------------------------------
 ALTER TABLE schedulings
+    ADD COLUMN duration_time INT,
     ADD COLUMN ends_at TIMESTAMPTZ;
 
 UPDATE schedulings s
-SET ends_at = s.scheduled_at + make_interval(mins => sv.duration_time)
+SET duration_time = sv.duration_time,
+    ends_at = s.scheduled_at + make_interval(mins => sv.duration_time)
 FROM services sv
 WHERE sv.id = s.service_id;
 
 ALTER TABLE schedulings
+    ALTER COLUMN duration_time SET NOT NULL,
     ALTER COLUMN ends_at SET NOT NULL;
 
 ALTER TABLE schedulings
+    ADD CONSTRAINT chk_scheduling_duration CHECK (duration_time > 0),
     ADD CONSTRAINT chk_scheduling_interval CHECK (ends_at > scheduled_at);
 
 -- Agendamento x Agendamento: dois agendamentos que ocupam agenda nunca se sobrepõem

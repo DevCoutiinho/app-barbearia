@@ -117,6 +117,37 @@ class TimeIntervalTest {
             assertEquals(1, free.size());
             assertEquals(base, free.get(0));
         }
+
+        @Test
+        @DisplayName("Subtrair agendamento de 30 min (10:00-10:30) não deve deixar livre nenhum candidato menor dentro dele (ex: 10:00-10:15)")
+        void shorterServiceInsideOccupiedShouldNotFitInFreeIntervals() {
+            Instant t0800 = Instant.parse("2026-11-14T08:00:00Z");
+            Instant t1000 = Instant.parse("2026-11-14T10:00:00Z");
+            Instant t1015 = Instant.parse("2026-11-14T10:15:00Z");
+            Instant t1030 = Instant.parse("2026-11-14T10:30:00Z");
+            Instant t1800 = Instant.parse("2026-11-14T18:00:00Z");
+
+            TimeInterval work = new TimeInterval(t0800, t1800);
+            TimeInterval occupied30min = new TimeInterval(t1000, t1030);
+
+            List<TimeInterval> free = TimeInterval.subtract(List.of(work), List.of(occupied30min));
+
+            assertEquals(2, free.size());
+            assertEquals(new TimeInterval(t0800, t1000), free.get(0));
+            assertEquals(new TimeInterval(t1030, t1800), free.get(1));
+
+            TimeInterval candidate15min = new TimeInterval(t1000, t1015);
+            assertFalse(free.stream().anyMatch(interval -> interval.contains(candidate15min)),
+                    "O candidato de 15 minutos às 10:00 não pode caber em nenhum intervalo livre");
+
+            TimeInterval candidateInside1015 = new TimeInterval(t1015, t1030);
+            assertFalse(free.stream().anyMatch(interval -> interval.contains(candidateInside1015)),
+                    "O candidato de 15 minutos às 10:15 não pode caber em nenhum intervalo livre");
+
+            TimeInterval candidateAfter1030 = new TimeInterval(t1030, Instant.parse("2026-11-14T10:45:00Z"));
+            assertTrue(free.stream().anyMatch(interval -> interval.contains(candidateAfter1030)),
+                    "O candidato de 15 minutos às 10:30 deve caber no intervalo livre da tarde");
+        }
     }
 }
 

@@ -13,8 +13,12 @@ public record SchedulingResponseDTO(
         String serviceName,
         OffsetDateTime startAt,
         OffsetDateTime endAt,
+        Integer durationTime,
         SchedulingStatus status,
-        BigDecimal finalPrice
+        BigDecimal finalPrice,
+        OffsetDateTime previousStartAt,
+        OffsetDateTime previousEndAt,
+        Integer rescheduleCount
 ) {
 }
 
