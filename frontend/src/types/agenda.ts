@@ -87,11 +87,42 @@ export interface Scheduling {
   serviceName: string
   startAt: string
   endAt: string
+  durationTime?: number
   status: SchedulingStatus
   finalPrice: number
+  previousStartAt?: string | null
+  previousEndAt?: string | null
+  rescheduleCount?: number
 }
 
 export interface SchedulingPayload {
+  barberId?: string
   serviceId: string
   startAt: string
+}
+
+export interface SchedulingReschedulePayload {
+  newStartAt: string
+}
+
+export interface BarberAppointmentHistory {
+  id: string
+  clientId: string
+  clientName: string
+  serviceId: string
+  serviceName: string
+  status: SchedulingStatus
+  scheduledAt: string
+  endsAt: string
+  durationTime: number
+  price: number
+}
+
+export interface BarberSchedulingFilters {
+  startDate?: string
+  endDate?: string
+  clientName?: string
+  status?: SchedulingStatus
+  page?: number
+  size?: number
 }

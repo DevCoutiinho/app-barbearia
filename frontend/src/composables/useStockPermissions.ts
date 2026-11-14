@@ -5,9 +5,13 @@ type SessionUser = { roles?: string[]; permissions?: string[] } | null | undefin
 
 export function stockAccess(user: SessionUser) {
   const permissions = user?.permissions ?? []
-  const canView = permissions.includes('INVENTORY_READ')
-  const canCreate = permissions.includes('INVENTORY_CREATE')
-  const canUpdate = permissions.includes('INVENTORY_UPDATE')
+  const roles = user?.roles ?? []
+  const isAdmin = roles.includes('ADMIN')
+  const isBarber = roles.includes('BARBER') || roles.includes('BARBEIRO')
+
+  const canView = isAdmin || isBarber || permissions.includes('INVENTORY_READ')
+  const canCreate = isAdmin || permissions.includes('INVENTORY_CREATE')
+  const canUpdate = isAdmin || permissions.includes('INVENTORY_UPDATE')
   const canManage = canCreate || canUpdate
   return { canView, canCreate, canUpdate, canManage }
 }

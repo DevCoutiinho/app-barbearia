@@ -159,3 +159,27 @@ export function visibleHourRange(schedule: WeeklySchedule | null | undefined): {
 export function formatPrice(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
+
+export const SCHEDULING_STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
+  PENDING: { label: 'Pendente', badgeClass: 'bg-amber-50 text-amber-800 border-amber-200' },
+  SCHEDULED: { label: 'Agendado', badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+  COMPLETED: { label: 'Finalizado', badgeClass: 'bg-blue-50 text-blue-800 border-blue-200' },
+  CANCELED: { label: 'Cancelado', badgeClass: 'bg-stone-100 text-stone-600 border-stone-200' },
+}
+
+export function formatSchedulingDateTime(isoString: string): string {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  return date.toLocaleDateString('pt-BR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).replace(/\./g, '')
+}
+
+export function isPastScheduling(isoString: string): boolean {
+  if (!isoString) return false
+  return new Date(isoString).getTime() < Date.now()
+}

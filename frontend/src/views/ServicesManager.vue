@@ -14,7 +14,10 @@ import type { PageMetadata } from '../types/user'
 import { handleApiError } from '../utils/errorHandler'
 
 const auth = useAuthStore()
-const canManageServices = computed(() => auth.user?.roles?.includes('BARBER') ?? false)
+const canManageServices = computed(() => {
+  const roles = auth.user?.roles ?? []
+  return roles.includes('BARBER') || roles.includes('BARBEIRO')
+})
 const services = ref<BarberService[]>([])
 const categories = ref<ServiceCategory[]>([])
 const loading = ref(false)

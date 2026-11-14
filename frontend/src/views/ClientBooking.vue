@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { CalendarCheck, CalendarX, Clock, Info, RefreshCw, Scissors } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import DashboardLayout from '../layouts/DashboardLayout.vue'
@@ -13,6 +14,7 @@ import { agendaErrorMessage } from '../utils/agendaErrors'
 const MAX_DAYS_AHEAD = 60
 
 const auth = useAuthStore()
+const route = useRoute()
 const today = toIsoDate(new Date())
 const maxDate = toIsoDate(addDays(new Date(), MAX_DAYS_AHEAD))
 const quickDates = Array.from({ length: 7 }, (_, index) => addDays(new Date(), index))
@@ -53,7 +55,16 @@ async function loadCatalog() {
   catalogError.value = ''
   try {
     catalog.value = await agendaService.listCatalog()
-    if (!selectedService.value) serviceId.value = catalog.value[0]?.id ?? ''
+    const queryServiceId = typeof route.query.serviceId === 'string' ? route.query.serviceId : ''
+    if (queryServiceId && catalog.value.some(s => s.id === queryServiceId)) {
+      serviceId.value = queryServiceId
+      const found = catalog.value.find(s => s.id === queryServiceId)
+      if (found) {
+        toast.info(`Serviço "${found.name}" pré-selecionado para agendamento!`)
+      }
+    } else if (!selectedService.value) {
+      serviceId.value = catalog.value[0]?.id ?? ''
+    }
   } catch (cause) {
     catalogError.value = agendaErrorMessage(cause, 'Não foi possível carregar os serviços.')
   } finally {
@@ -119,6 +130,16 @@ watch([serviceId, date], () => {
   void loadSlots()
 })
 
+watch(() => route.query.serviceId, (newId) => {
+  if (typeof newId === 'string' && newId && catalog.value.some(s => s.id === newId)) {
+    serviceId.value = newId
+    const found = catalog.value.find(s => s.id === newId)
+    if (found) {
+      toast.info(`Serviço "${found.name}" pré-selecionado para agendamento!`)
+    }
+  }
+})
+
 onMounted(loadCatalog)
 </script>
 
@@ -126,10 +147,15 @@ onMounted(loadCatalog)
   <DashboardLayout>
     <section class="bg-paper pb-8 text-ink" aria-labelledby="booking-title">
       <div class="mx-auto max-w-[1200px] px-4 py-7 sm:px-[26px] lg:py-9">
-        <header class="mb-7">
-          <p class="mb-2 text-[11px] font-semibold tracking-[1.5px] text-[#a67039]">AGENDAMENTO</p>
-          <h1 id="booking-title" class="text-[27px] leading-9 font-bold tracking-[-1px]">Agendar horário</h1>
-          <p class="mt-1 text-[14px] leading-[21px] text-[#74747f]">Escolha o serviço, o dia e um dos horários livres do barbeiro.</p>
+        <header class="mb-7 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p class="mb-2 text-[11px] font-semibold tracking-[1.5px] text-[#a67039]">AGENDAMENTO</p>
+            <h1 id="booking-title" class="text-[27px] leading-9 font-bold tracking-[-1px]">Agendar horário</h1>
+            <p class="mt-1 text-[14px] leading-[21px] text-[#74747f]">Escolha o serviço, o dia e um dos horários livres do barbeiro.</p>
+          </div>
+          <RouterLink to="/meus-agendamentos" class="button button-secondary button-sm text-xs">
+            Ver meus agendamentos
+          </RouterLink>
         </header>
 
         <p v-if="isBarber(auth.user)" class="mb-5 flex items-start gap-2 rounded-xl border border-line bg-white p-4 text-[13px] text-[#55555e]" role="status">
@@ -225,9 +251,21 @@ onMounted(loadCatalog)
             </div>
 
             <div v-if="bookingError" class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">{{ bookingError }}</div>
-            <div v-if="confirmed" class="mt-4 flex items-start gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
-              <CalendarCheck class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <p>{{ confirmed.serviceName }} confirmado para {{ parseIsoDate(confirmed.startAt.slice(0, 10)).toLocaleDateString('pt-BR') }}, às {{ isoTimePart(confirmed.startAt) }} ({{ formatPrice(confirmed.finalPrice) }}).</p>
+            <div v-if="confirmed" class="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900 border border-emerald-200" role="status">
+              <div class="flex items-start gap-2">
+                <CalendarCheck class="mt-0.5 size-5 shrink-0 text-emerald-600" aria-hidden="true" />
+                <div>
+                  <p class="font-bold text-emerald-950">Agendamento Realizado!</p>
+                  <p class="mt-0.5">
+                    {{ confirmed.serviceName }} confirmado para {{ parseIsoDate(confirmed.startAt.slice(0, 10)).toLocaleDateString('pt-BR') }}, às {{ isoTimePart(confirmed.startAt) }} ({{ formatPrice(confirmed.finalPrice) }}).
+                  </p>
+                  <div class="mt-3">
+                    <RouterLink to="/meus-agendamentos" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-800 transition">
+                      Ver em Meus Agendamentos
+                    </RouterLink>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div v-if="selectedSlot && selectedService" class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">

@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { nextTick, ref, useId, watch } from 'vue'
+import { computed, nextTick, ref, useId, watch } from 'vue'
 import { onClickOutside, onKeyStroke } from '@vueuse/core'
-import { ChevronDown, LayoutDashboard, LogOut, UserRound } from '@lucide/vue'
+import { ChevronDown, CalendarPlus, CalendarCheck, LayoutDashboard, LogOut, UserRound } from '@lucide/vue'
 import { useAuthStore } from '../../stores/auth'
 
 defineProps<{ scrolled: boolean }>()
 const emit = defineEmits<{ open: [] }>()
 const auth = useAuthStore()
+
+const isClient = computed(() => {
+  const roles = auth.user?.roles || []
+  return !roles.includes('ADMIN') && !roles.includes('BARBER') && !roles.includes('BARBEIRO')
+})
 const opened = ref(false)
 const root = ref<HTMLElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
@@ -91,15 +96,38 @@ watch(() => auth.isAuthenticated, () => close())
       class="absolute right-0 top-full mt-3 w-[230px] max-w-[calc(100vw-56px)] rounded-lg border border-line bg-paper p-2 text-ink shadow-lg"
       @keydown="onMenuKeydown"
     >
-      <RouterLink to="/dashboard" role="menuitem" class="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-[0.87rem] font-semibold hover:bg-paper-deep focus-visible:outline-2 focus-visible:outline-gold" @click="close()">
+      <RouterLink
+        v-if="!isClient"
+        to="/dashboard"
+        role="menuitem"
+        class="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-[0.87rem] font-semibold hover:bg-paper-deep focus-visible:outline-2 focus-visible:outline-gold"
+        @click="close()"
+      >
         <LayoutDashboard class="size-[18px]" aria-hidden="true" /> Dashboard
       </RouterLink>
-      <button type="button" role="menuitem" disabled aria-disabled="true" class="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-[0.87rem] font-semibold text-text-soft opacity-60">
-        <UserRound class="size-[18px]" aria-hidden="true" /> Meu perfil
-      </button>
-      <p class="px-3 pb-3 text-xs text-text-soft">Meu perfil ainda não está disponível.</p>
-      <div role="separator" class="mb-1 border-t border-line"></div>
-      <button type="button" role="menuitem" class="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-[0.87rem] font-semibold hover:bg-paper-deep focus-visible:outline-2 focus-visible:outline-gold" @click="logout">
+      <RouterLink
+        to="/agendar"
+        role="menuitem"
+        class="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-[0.87rem] font-semibold hover:bg-paper-deep focus-visible:outline-2 focus-visible:outline-gold"
+        @click="close()"
+      >
+        <CalendarPlus class="size-[18px]" aria-hidden="true" /> Agendar horário
+      </RouterLink>
+      <RouterLink
+        to="/meus-agendamentos"
+        role="menuitem"
+        class="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-[0.87rem] font-semibold hover:bg-paper-deep focus-visible:outline-2 focus-visible:outline-gold"
+        @click="close()"
+      >
+        <CalendarCheck class="size-[18px]" aria-hidden="true" /> Meus agendamentos
+      </RouterLink>
+      <div role="separator" class="my-1 border-t border-line"></div>
+      <button
+        type="button"
+        role="menuitem"
+        class="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-[0.87rem] font-semibold hover:bg-paper-deep focus-visible:outline-2 focus-visible:outline-gold"
+        @click="logout"
+      >
         <LogOut class="size-[18px]" aria-hidden="true" /> Sair
       </button>
     </div>

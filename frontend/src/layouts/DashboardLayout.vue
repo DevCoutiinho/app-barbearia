@@ -23,6 +23,7 @@ const initials = (name: string) => name.trim().split(/\s+/).map(part => part[0])
 const userInitials = computed(() => auth.user ? initials(auth.user.name) : 'BF')
 const roleLabel = computed(() => {
   const roles = auth.user?.roles || []
+  if (roles.includes('ADMIN') && (roles.includes('BARBEIRO') || roles.includes('BARBER'))) return 'Administrador / Barbeiro'
   if (roles.includes('ADMIN')) return 'Administrador'
   if (roles.includes('BARBEIRO') || roles.includes('BARBER')) return 'Barbeiro'
   return 'Cliente'
@@ -32,87 +33,96 @@ const navigation = computed(() => {
   const roles = auth.user?.roles || []
   const isAdmin = roles.includes('ADMIN')
   const isBarber = roles.includes('BARBEIRO') || roles.includes('BARBER')
-  const canReadUsers = auth.user?.permissions?.includes('USER_READ') ?? false
-  const canReadInventory = auth.user?.permissions?.includes('INVENTORY_READ') ?? false
+
   const usersItem = { label: 'Usuários', icon: Users, target: '/users' }
+  const rolesItem = { label: 'Roles', icon: ShieldCheck, target: '/roles' }
+  const permissionsItem = { label: 'Permissões', icon: KeyRound, target: '/permissoes' }
   const stockItem = { label: 'Estoque', icon: Package, target: '/estoque' }
+  const servicesItem = { label: 'Serviços', icon: Scissors, target: '/services' }
+  const settingsItem = { label: 'Configurações', icon: Settings, target: '' }
   const agendaItem = { label: 'Minha agenda', icon: CalendarDays, target: '/agenda' }
-  const usersNavigation = canReadUsers ? [{ title: 'Administração', items: [usersItem] }] : []
-  const clientAdminItems = [
-    ...(canReadUsers ? [usersItem] : []),
-    ...(canReadInventory ? [stockItem] : []),
-  ]
-  const clientAdminNavigation = clientAdminItems.length ? [{ title: 'Administração', items: clientAdminItems }] : []
 
+  // Tópico de Administração de acordo com o perfil:
+  // Se for ADMIN: Roles, Usuários, Permissões e Estoque (e Serviços caso não seja barbeiro)
+  // Se for apenas BARBER: apenas Estoque
+  let adminItems: Array<{ label: string; icon: any; target: string }> = []
   if (isAdmin) {
-    // Admin que também é barbeiro ganha os cadastros de barbeiro (agenda, serviços) além da administração.
-    const barberNavigation = isBarber
-      ? [
-          { title: 'Meu dia', items: [
-            agendaItem,
-            { label: 'Agendamentos', icon: ClipboardList, target: '/dashboard#agenda' },
-          ] },
-          { title: 'Trabalho', items: [
-            { label: 'Meus serviços', icon: Scissors, target: '/services' },
-            { label: 'Histórico', icon: History, target: '' },
-          ] },
-        ]
-      : []
-    return [
-      { title: '', items: [
-        { label: 'Dashboard', icon: LayoutDashboard, target: '/dashboard' },
-      ] },
-      ...barberNavigation,
-      { title: 'Administração', items: [
-        { label: 'Roles', icon: ShieldCheck, target: '/roles' },
-        { label: 'Permissões', icon: KeyRound, target: '/permissoes' },
-        ...(canReadUsers ? [usersItem] : []),
-        ...(canReadInventory ? [stockItem] : []),
-        { label: 'Configurações', icon: Settings, target: '' },
-      ] },
-      { title: 'Conta', items: [
-        { label: 'Notificações', icon: Bell, target: '' },
-        { label: 'Perfil', icon: UserRound, target: '' },
-      ] },
+    adminItems = [
+      rolesItem,
+      usersItem,
+      permissionsItem,
+      stockItem,
+      ...(!isBarber ? [servicesItem] : []),
+      settingsItem,
     ]
+  } else if (isBarber) {
+    adminItems = [stockItem]
   }
 
-  if (isBarber) {
-    return [
-      { title: 'Meu dia', items: [
-        { label: 'Dashboard', icon: LayoutDashboard, target: '/dashboard' },
-        agendaItem,
-        { label: 'Agendamentos', icon: ClipboardList, target: '/dashboard#agenda' },
-      ] },
-      { title: 'Trabalho', items: [
-        { label: 'Meus serviços', icon: Scissors, target: '/services' },
-        ...(canReadInventory ? [stockItem] : []),
-        { label: 'Histórico', icon: History, target: '' },
-      ] },
-      ...usersNavigation,
-      { title: 'Conta', items: [
-        { label: 'Notificações', icon: Bell, target: '' },
-        { label: 'Perfil', icon: UserRound, target: '' },
-      ] },
-    ]
-  }
+  const adminGroup = adminItems.length > 0 ? [{ title: 'Administração', items: adminItems }] : []
 
-  return [
-    { title: '', items: [
-      { label: 'Início', icon: Home, target: '/dashboard' },
-      { label: 'Agendar', icon: CalendarPlus, target: '/agendar' },
-      { label: 'Meus agendamentos', icon: ClipboardList, target: '/dashboard#agenda' },
-      { label: 'Histórico', icon: History, target: '' },
-    ] },
-    { title: 'Explorar', items: [
-      { label: 'Barbeiros', icon: Users, target: '/dashboard#equipe' },
-      { label: 'Serviços', icon: Scissors, target: '/dashboard#servicos' },
-    ] },
-    ...clientAdminNavigation,
-    { title: 'Conta', items: [
+  const accountGroup = {
+    title: 'Conta',
+    items: [
       { label: 'Notificações', icon: Bell, target: '' },
       { label: 'Perfil', icon: UserRound, target: '' },
-    ] },
+    ],
+  }
+
+  // Se o usuário tem a role BARBER (com ou sem ADMIN), ele DEVE ver as telas de barbeiro
+  if (isBarber) {
+    return [
+      {
+        title: 'Meu dia',
+        items: [
+          { label: 'Dashboard', icon: LayoutDashboard, target: '/dashboard' },
+          agendaItem,
+          { label: 'Agendamentos', icon: ClipboardList, target: '/agendamentos' },
+        ],
+      },
+      {
+        title: 'Trabalho',
+        items: [
+          { label: 'Meus serviços', icon: Scissors, target: '/services' },
+          { label: 'Histórico', icon: History, target: '/historico-atendimentos' },
+        ],
+      },
+      ...adminGroup,
+      accountGroup,
+    ]
+  }
+
+  // Se o usuário é apenas ADMIN (sem role de barbeiro)
+  if (isAdmin) {
+    return [
+      {
+        title: '',
+        items: [
+          { label: 'Dashboard', icon: LayoutDashboard, target: '/dashboard' },
+        ],
+      },
+      ...adminGroup,
+      accountGroup,
+    ]
+  }
+
+  // Usuário é Cliente
+  return [
+    {
+      title: '',
+      items: [
+        { label: 'Início', icon: Home, target: '/dashboard' },
+        { label: 'Agendar', icon: CalendarPlus, target: '/agendar' },
+        { label: 'Meus agendamentos', icon: ClipboardList, target: '/meus-agendamentos' },
+      ],
+    },
+    {
+      title: 'Explorar',
+      items: [
+        { label: 'Serviços', icon: Scissors, target: '/catalogo' },
+      ],
+    },
+    accountGroup,
   ]
 })
 

@@ -57,9 +57,51 @@ const router = createRouter({
             }
         },
         {
+            path: '/agendamentos',
+            name: 'barber-appointments',
+            component: () => import('../views/BarberAppointments.vue'),
+            beforeEnter: () => {
+                const auth = useAuthStore()
+                if (!auth.initialized) auth.restoreSession()
+                if (!auth.isAuthenticated) return { name: 'login' }
+                if (!isBarber(auth.user)) return { name: 'dashboard' }
+            }
+        },
+        {
+            path: '/historico-atendimentos',
+            name: 'barber-history',
+            component: () => import('../views/BarberAppointmentHistory.vue'),
+            beforeEnter: () => {
+                const auth = useAuthStore()
+                if (!auth.initialized) auth.restoreSession()
+                if (!auth.isAuthenticated) return { name: 'login' }
+                if (!isBarber(auth.user)) return { name: 'dashboard' }
+            }
+        },
+        {
             path: '/agendar',
             name: 'booking',
             component: () => import('../views/ClientBooking.vue'),
+            beforeEnter: () => {
+                const auth = useAuthStore()
+                if (!auth.initialized) auth.restoreSession()
+                if (!auth.isAuthenticated) return { name: 'login' }
+            }
+        },
+        {
+            path: '/meus-agendamentos',
+            name: 'my-appointments',
+            component: () => import('../views/MyAppointments.vue'),
+            beforeEnter: () => {
+                const auth = useAuthStore()
+                if (!auth.initialized) auth.restoreSession()
+                if (!auth.isAuthenticated) return { name: 'login' }
+            }
+        },
+        {
+            path: '/catalogo',
+            name: 'catalog',
+            component: () => import('../views/ServiceCatalog.vue'),
             beforeEnter: () => {
                 const auth = useAuthStore()
                 if (!auth.initialized) auth.restoreSession()

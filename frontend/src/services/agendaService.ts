@@ -2,11 +2,14 @@ import api from './api'
 import type { ApiResponse } from '../types/api'
 import type {
   AvailableSlot,
+  BarberAppointmentHistory,
+  BarberSchedulingFilters,
   CatalogService,
   ScheduleBlock,
   ScheduleBlockPayload,
   Scheduling,
   SchedulingPayload,
+  SchedulingReschedulePayload,
   WeeklySchedule,
 } from '../types/agenda'
 import { normalizeSchedule } from '../utils/agenda'
@@ -71,6 +74,56 @@ const agendaService = {
   async createScheduling(payload: SchedulingPayload): Promise<Scheduling> {
     const response = await api.post<ApiResponse<Scheduling[]>>('/schedulings', payload)
     return single(response.data, 'agendamento')
+  },
+
+  async listMySchedulings(): Promise<Scheduling[]> {
+    const response = await api.get<ApiResponse<Scheduling[]>>('/schedulings/me')
+    return list(response.data)
+  },
+
+  async cancelScheduling(id: string): Promise<Scheduling> {
+    const response = await api.patch<ApiResponse<Scheduling[]>>(`/schedulings/${encodeURIComponent(id)}/cancel`)
+    return single(response.data, 'agendamento cancelado')
+  },
+
+  async rescheduleScheduling(id: string, payload: SchedulingReschedulePayload): Promise<Scheduling> {
+    const response = await api.patch<ApiResponse<Scheduling[]>>(`/schedulings/${encodeURIComponent(id)}/reschedule`, payload)
+    return single(response.data, 'agendamento remarcado')
+  },
+
+  /* ── Histórico de atendimentos do barbeiro logado ── */
+  async listBarberHistory(filters: BarberSchedulingFilters = {}): Promise<any> {
+    try {
+      const response = await api.get<ApiResponse<any>>('/schedulings/barber/history', { params: filters })
+      return response.data?.data?.[0] || response.data?.data || []
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        const fallback = await api.get<ApiResponse<any>>('/barbers/me/history', { params: filters })
+        return fallback.data?.data?.[0] || fallback.data?.data || []
+      }
+      throw err
+    }
+  },
+
+  /* ── Agendamentos do dia do barbeiro logado ── */
+  async listBarberDaily(date?: string): Promise<BarberAppointmentHistory[]> {
+    const params = date ? { date } : {}
+    try {
+      const response = await api.get<ApiResponse<BarberAppointmentHistory[]>>('/schedulings/barber/daily', { params })
+      return list(response.data)
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        const fallback = await api.get<ApiResponse<BarberAppointmentHistory[]>>('/barbers/me/daily', { params })
+        return list(fallback.data)
+      }
+      throw err
+    }
+  },
+
+  /* ── Finalizar atendimento do barbeiro ── */
+  async completeScheduling(id: string): Promise<Scheduling> {
+    const response = await api.patch<ApiResponse<Scheduling[]>>(`/schedulings/${encodeURIComponent(id)}/complete`)
+    return single(response.data, 'atendimento finalizado')
   },
 }
 
