@@ -32,6 +32,7 @@ const appointments = ref<BarberAppointmentHistory[]>([])
 const loading = ref(false)
 const error = ref('')
 const completingId = ref<string | null>(null)
+const cancelingId = ref<string | null>(null)
 
 const selectedAppointment = ref<BarberAppointmentHistory | null>(null)
 const detailsDialog = ref<HTMLDialogElement | null>(null)
@@ -112,7 +113,7 @@ async function loadAppointments() {
 }
 
 async function handleCompleteScheduling(item: BarberAppointmentHistory) {
-  if (completingId.value) return
+  if (completingId.value || cancelingId.value) return
   const confirmed = window.confirm(`Deseja finalizar o atendimento de ${item.clientName}?`)
   if (!confirmed) return
 
@@ -126,6 +127,26 @@ async function handleCompleteScheduling(item: BarberAppointmentHistory) {
     toast.error(msg)
   } finally {
     completingId.value = null
+  }
+}
+
+async function handleCancelScheduling(item: BarberAppointmentHistory) {
+  if (cancelingId.value || completingId.value) return
+  const confirmed = window.confirm(
+    `Deseja realmente cancelar o agendamento de ${item.clientName}? O horário será liberado imediatamente e o cliente será notificado no sistema.`
+  )
+  if (!confirmed) return
+
+  cancelingId.value = item.id
+  try {
+    await agendaService.cancelScheduling(item.id)
+    toast.success(`Agendamento de ${item.clientName} cancelado com sucesso!`)
+    await loadAppointments()
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || 'Não foi possível cancelar o agendamento.'
+    toast.error(msg)
+  } finally {
+    cancelingId.value = null
   }
 }
 
@@ -398,13 +419,27 @@ onMounted(() => {
                         v-if="item.status !== 'COMPLETED' && item.status !== 'CANCELED'"
                         type="button"
                         class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-50"
-                        :disabled="completingId === item.id"
+                        :disabled="completingId === item.id || cancelingId === item.id"
                         title="Finalizar este atendimento"
                         @click="handleCompleteScheduling(item)"
                       >
                         <Loader2 v-if="completingId === item.id" class="size-3.5 animate-spin" />
                         <Check v-else class="size-3.5" />
                         Finalizar serviço
+                      </button>
+
+                      <!-- Botão Cancelar Agendamento -->
+                      <button
+                        v-if="item.status !== 'COMPLETED' && item.status !== 'CANCELED'"
+                        type="button"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-100 active:scale-95 transition-all disabled:opacity-50"
+                        :disabled="cancelingId === item.id || completingId === item.id"
+                        title="Cancelar este agendamento e liberar horário"
+                        @click="handleCancelScheduling(item)"
+                      >
+                        <Loader2 v-if="cancelingId === item.id" class="size-3.5 animate-spin" />
+                        <CircleX v-else class="size-3.5 text-red-600" />
+                        Cancelar
                       </button>
 
                       <!-- Badge Concluído -->
@@ -508,12 +543,22 @@ onMounted(() => {
 
       <div
         v-if="selectedAppointment && selectedAppointment.status !== 'COMPLETED' && selectedAppointment.status !== 'CANCELED'"
-        class="mt-6 flex justify-end gap-2 border-t border-line pt-4"
+        class="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4"
       >
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700"
-          :disabled="completingId === selectedAppointment.id"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-100 disabled:opacity-50 transition-all"
+          :disabled="cancelingId === selectedAppointment.id || completingId === selectedAppointment.id"
+          @click="handleCancelScheduling(selectedAppointment); detailsDialog?.close()"
+        >
+          <CircleX class="size-4 text-red-600" />
+          Cancelar agendamento
+        </button>
+
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+          :disabled="completingId === selectedAppointment.id || cancelingId === selectedAppointment.id"
           @click="handleCompleteScheduling(selectedAppointment); detailsDialog?.close()"
         >
           <Check class="size-4" />

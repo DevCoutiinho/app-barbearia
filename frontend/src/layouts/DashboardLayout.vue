@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { onKeyStroke, useMediaQuery } from '@vueuse/core'
 import { toast } from 'vue-sonner'
@@ -9,6 +9,7 @@ import {
   Users, X,
 } from '@lucide/vue'
 import { useAuthStore } from '../stores/auth'
+import notificationService from '../services/notificationService'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -18,6 +19,21 @@ const sidebarOpen = ref(false)
 const mobileMenuButton = ref<HTMLButtonElement | null>(null)
 const sidebar = ref<HTMLElement | null>(null)
 const desktop = useMediaQuery('(min-width: 1024px)')
+const unreadNotifications = ref(0)
+
+async function loadUnreadNotifications() {
+  if (!auth.isAuthenticated) return
+  try {
+    const list = await notificationService.listMyNotifications()
+    unreadNotifications.value = list.filter(n => !n.read).length
+  } catch {
+    // Falha silenciosa no contador da barra
+  }
+}
+
+onMounted(() => {
+  loadUnreadNotifications()
+})
 
 const initials = (name: string) => name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('')
 const userInitials = computed(() => auth.user ? initials(auth.user.name) : 'BF')
@@ -64,7 +80,7 @@ const navigation = computed(() => {
   const accountGroup = {
     title: 'Conta',
     items: [
-      { label: 'Notificações', icon: Bell, target: '' },
+      { label: 'Notificações', icon: Bell, target: '/notificacoes' },
       { label: 'Perfil', icon: UserRound, target: '' },
     ],
   }
@@ -183,7 +199,11 @@ async function logout() {
           <p v-if="group.title" class="mb-1 px-[11px] text-[11px] leading-4 font-medium text-[#74747f]">{{ group.title }}</p>
           <template v-for="item in group.items" :key="item.label">
             <RouterLink v-if="item.target && item.target !== '/dashboard' && item.target.startsWith('/') && !item.target.includes('#')" :to="item.target" class="nav-item text-[#303039] hover:bg-paper" active-class="bg-ink font-semibold text-white" @click="sidebarOpen = false">
-              <component :is="item.icon" class="size-[17px] shrink-0 text-[#74747f]" :stroke-width="1.7" aria-hidden="true" />{{ item.label }}
+              <component :is="item.icon" class="size-[17px] shrink-0 text-[#74747f]" :stroke-width="1.7" aria-hidden="true" />
+              <div class="flex flex-1 justify-between items-center">
+                <span>{{ item.label }}</span>
+                <span v-if="item.label === 'Notificações' && unreadNotifications > 0" class="flex h-5 items-center justify-center rounded-full bg-[#a67039] px-1.5 text-[10px] font-bold text-white">{{ unreadNotifications }}</span>
+              </div>
             </RouterLink>
             <a v-else-if="item.target" :href="item.target" class="nav-item" :class="['Dashboard', 'Início'].includes(item.label) && $route.path === '/dashboard' ? 'bg-ink font-semibold text-white' : 'text-[#303039] hover:bg-paper'" :aria-current="['Dashboard', 'Início'].includes(item.label) && $route.path === '/dashboard' ? 'page' : undefined" @click="sidebarOpen = false">
               <component :is="item.icon" class="size-[17px] shrink-0" :class="['Dashboard', 'Início'].includes(item.label) && $route.path === '/dashboard' ? 'text-[#a67039]' : 'text-[#74747f]'" :stroke-width="1.7" aria-hidden="true" />{{ item.label }}
@@ -213,7 +233,15 @@ async function logout() {
           <input v-model="search" type="search" placeholder="Buscar cliente, agendamento ou serviço" class="w-full min-w-0 bg-transparent text-[13px] text-ink outline-none placeholder:text-[#74747f]" />
         </label>
         <div class="flex shrink-0 items-center gap-2 sm:gap-3">
-          <button type="button" class="icon-button hidden size-9 sm:flex" aria-label="Notificações" @click="unavailable('Notificações')"><Bell class="size-[18px]" :stroke-width="1.6" /></button>
+          <RouterLink to="/notificacoes" class="icon-button relative hidden size-9 sm:flex" aria-label="Notificações">
+            <Bell class="size-[18px]" :stroke-width="1.6" />
+            <span
+              v-if="unreadNotifications > 0"
+              class="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#a67039] px-1 text-[9px] font-bold text-white shadow"
+            >
+              {{ unreadNotifications > 9 ? '9+' : unreadNotifications }}
+            </span>
+          </RouterLink>
           <span class="avatar" :aria-label="auth.user?.name ?? 'Barbearia Ferro'">{{ userInitials }}</span>
         </div>
       </header>

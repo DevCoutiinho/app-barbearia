@@ -13,6 +13,7 @@ import StatCard from '../components/dashboard/StatCard.vue'
 import { appointments, dashboardDate, weeklyRevenue, type Appointment, type AppointmentStatus } from '../data/dashboard'
 import { barbers, services } from '../data/home'
 import agendaService from '../services/agendaService'
+import notificationService from '../services/notificationService'
 import type { BarberAppointmentHistory } from '../types/agenda'
 import { useAuthStore } from '../stores/auth'
 
@@ -36,6 +37,18 @@ const desktop = useMediaQuery('(min-width: 1024px)')
 const barberDailyAppointments = ref<BarberAppointmentHistory[]>([])
 const loadingBarberDaily = ref(false)
 const completingId = ref<string | null>(null)
+const cancelingId = ref<string | null>(null)
+const unreadNotifications = ref(0)
+
+async function loadUnreadNotifications() {
+  if (!auth.isAuthenticated) return
+  try {
+    const list = await notificationService.listMyNotifications()
+    unreadNotifications.value = list.filter(n => !n.read).length
+  } catch {
+    // Ignora erro ao atualizar badge
+  }
+}
 const barberStatusFilter = ref<string>('')
 
 const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -122,7 +135,7 @@ async function loadBarberDaily() {
 }
 
 async function handleCompleteScheduling(item: BarberAppointmentHistory) {
-  if (completingId.value) return
+  if (completingId.value || cancelingId.value) return
   const confirmed = window.confirm(`Deseja finalizar o atendimento de ${item.clientName}?`)
   if (!confirmed) return
 
@@ -139,11 +152,32 @@ async function handleCompleteScheduling(item: BarberAppointmentHistory) {
   }
 }
 
+async function handleCancelScheduling(item: BarberAppointmentHistory) {
+  if (cancelingId.value || completingId.value) return
+  const confirmed = window.confirm(
+    `Deseja realmente cancelar o agendamento de ${item.clientName}? O horário será liberado imediatamente e o cliente será notificado no sistema.`
+  )
+  if (!confirmed) return
+
+  cancelingId.value = item.id
+  try {
+    await agendaService.cancelScheduling(item.id)
+    toast.success(`Agendamento de ${item.clientName} cancelado com sucesso!`)
+    await loadBarberDaily()
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || 'Não foi possível cancelar o agendamento.'
+    toast.error(msg)
+  } finally {
+    cancelingId.value = null
+  }
+}
+
 function selectToday() {
   selectedDate.value = todayIso
 }
 
 onMounted(() => {
+  loadUnreadNotifications()
   if (isBarber.value) {
     loadBarberDaily()
   }
@@ -210,7 +244,7 @@ const navigation = computed(() => {
   const accountGroup = {
     title: 'Conta',
     items: [
-      { label: 'Notificações', icon: Bell, target: '' },
+      { label: 'Notificações', icon: Bell, target: '/notificacoes' },
       { label: 'Perfil', icon: UserRound, target: '' },
     ],
   }
@@ -422,7 +456,11 @@ function exportAppointments() {
           <p v-if="group.title" class="mb-1 px-[11px] text-[11px] leading-4 font-medium text-[#74747f]">{{ group.title }}</p>
           <template v-for="item in group.items" :key="item.label">
             <RouterLink v-if="item.target.startsWith('/')" :to="item.target" class="nav-item text-[#303039] hover:bg-paper" active-class="bg-ink font-semibold text-white" @click="sidebarOpen = false">
-              <component :is="item.icon" class="size-[17px] shrink-0 text-[#74747f]" :stroke-width="1.7" aria-hidden="true" />{{ item.label }}
+              <component :is="item.icon" class="size-[17px] shrink-0 text-[#74747f]" :stroke-width="1.7" aria-hidden="true" />
+              <div class="flex flex-1 justify-between items-center">
+                <span>{{ item.label }}</span>
+                <span v-if="item.label === 'Notificações' && unreadNotifications > 0" class="flex h-5 items-center justify-center rounded-full bg-[#a67039] px-1.5 text-[10px] font-bold text-white">{{ unreadNotifications }}</span>
+              </div>
             </RouterLink>
             <a v-else-if="item.target" :href="item.target" class="nav-item" :class="['Dashboard', 'Início'].includes(item.label) ? 'bg-ink font-semibold text-white' : 'text-[#303039] hover:bg-paper'" :aria-current="['Dashboard', 'Início'].includes(item.label) ? 'page' : undefined" @click="sidebarOpen = false">
               <component :is="item.icon" class="size-[17px] shrink-0" :class="['Dashboard', 'Início'].includes(item.label) ? 'text-[#a67039]' : 'text-[#74747f]'" :stroke-width="1.7" aria-hidden="true" />{{ item.label }}
@@ -453,7 +491,15 @@ function exportAppointments() {
         </label>
         <div class="flex shrink-0 items-center gap-2 sm:gap-3">
           <span class="hidden items-center gap-1.5 rounded-full border border-[#e7d3ba] bg-[#f5ede3] px-3 py-1.5 text-[11px] font-medium text-[#945d28] sm:inline-flex"><span class="size-1.5 rounded-full bg-[#a67039]"></span>Demonstração</span>
-          <button type="button" class="icon-button hidden size-9 sm:flex" aria-label="Notificações" @click="unavailable('Notificações')"><Bell class="size-[18px]" :stroke-width="1.6" /></button>
+          <RouterLink to="/notificacoes" class="icon-button relative hidden size-9 sm:flex" aria-label="Notificações">
+            <Bell class="size-[18px]" :stroke-width="1.6" />
+            <span
+              v-if="unreadNotifications > 0"
+              class="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#a67039] px-1 text-[9px] font-bold text-white shadow"
+            >
+              {{ unreadNotifications > 9 ? '9+' : unreadNotifications }}
+            </span>
+          </RouterLink>
           <span class="avatar" :aria-label="auth.user?.name ?? 'Barbearia Ferro'">{{ userInitials }}</span>
         </div>
       </header>
@@ -786,7 +832,7 @@ function exportAppointments() {
                         </span>
                       </td>
 
-                      <!-- Ações: Botão de Finalizar Serviço -->
+                      <!-- Ações: Botão de Finalizar Serviço e Cancelar -->
                       <td class="text-right pr-6">
                         <div class="inline-flex items-center justify-end gap-2">
                           <!-- Botão Finalizar Serviço (se não estiver cancelado ou já finalizado) -->
@@ -794,13 +840,27 @@ function exportAppointments() {
                             v-if="item.status !== 'COMPLETED' && item.status !== 'CANCELED'"
                             type="button"
                             class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-50"
-                            :disabled="completingId === item.id"
+                            :disabled="completingId === item.id || cancelingId === item.id"
                             title="Finalizar este atendimento"
                             @click="handleCompleteScheduling(item)"
                           >
                             <Loader2 v-if="completingId === item.id" class="size-3.5 animate-spin" />
                             <Check v-else class="size-3.5" />
                             Finalizar serviço
+                          </button>
+
+                          <!-- Botão Cancelar Agendamento -->
+                          <button
+                            v-if="item.status !== 'COMPLETED' && item.status !== 'CANCELED'"
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-100 active:scale-95 transition-all disabled:opacity-50"
+                            :disabled="cancelingId === item.id || completingId === item.id"
+                            title="Cancelar este agendamento e liberar horário"
+                            @click="handleCancelScheduling(item)"
+                          >
+                            <Loader2 v-if="cancelingId === item.id" class="size-3.5 animate-spin" />
+                            <CircleX v-else class="size-3.5 text-red-600" />
+                            Cancelar
                           </button>
 
                           <!-- Indicador quando já está Concluído -->
@@ -962,15 +1022,25 @@ function exportAppointments() {
         </dd>
       </dl>
 
-      <!-- Botão de Ação dentro do Modal -->
+      <!-- Botões de Ação dentro do Modal -->
       <div
         v-if="selectedBarberAppointment && selectedBarberAppointment.status !== 'COMPLETED' && selectedBarberAppointment.status !== 'CANCELED'"
-        class="mt-6 flex justify-end gap-2 border-t border-line pt-4"
+        class="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4"
       >
         <button
           type="button"
-          class="action-button border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
-          :disabled="completingId === selectedBarberAppointment.id"
+          class="action-button border-red-200 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+          :disabled="cancelingId === selectedBarberAppointment.id || completingId === selectedBarberAppointment.id"
+          @click="handleCancelScheduling(selectedBarberAppointment); appointmentDialog?.close()"
+        >
+          <CircleX class="size-4 text-red-600" />
+          Cancelar agendamento
+        </button>
+
+        <button
+          type="button"
+          class="action-button border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+          :disabled="completingId === selectedBarberAppointment.id || cancelingId === selectedBarberAppointment.id"
           @click="handleCompleteScheduling(selectedBarberAppointment); appointmentDialog?.close()"
         >
           <Check class="size-4" />

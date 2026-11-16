@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useId, watch } from 'vue'
 import { onClickOutside, onKeyStroke } from '@vueuse/core'
-import { ChevronDown, CalendarPlus, CalendarCheck, LayoutDashboard, LogOut, UserRound } from '@lucide/vue'
+import { Bell, ChevronDown, CalendarPlus, CalendarCheck, LayoutDashboard, LogOut, UserRound } from '@lucide/vue'
 import { useAuthStore } from '../../stores/auth'
 
 defineProps<{ scrolled: boolean }>()
@@ -120,6 +120,14 @@ watch(() => auth.isAuthenticated, () => close())
         @click="close()"
       >
         <CalendarCheck class="size-[18px]" aria-hidden="true" /> Meus agendamentos
+      </RouterLink>
+      <RouterLink
+        to="/notificacoes"
+        role="menuitem"
+        class="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-[0.87rem] font-semibold hover:bg-paper-deep focus-visible:outline-2 focus-visible:outline-gold"
+        @click="close()"
+      >
+        <Bell class="size-[18px]" aria-hidden="true" /> Notificações
       </RouterLink>
       <div role="separator" class="my-1 border-t border-line"></div>
       <button

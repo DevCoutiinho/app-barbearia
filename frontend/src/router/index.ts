@@ -99,6 +99,16 @@ const router = createRouter({
             }
         },
         {
+            path: '/notificacoes',
+            name: 'notifications',
+            component: () => import('../views/Notifications.vue'),
+            beforeEnter: () => {
+                const auth = useAuthStore()
+                if (!auth.initialized) auth.restoreSession()
+                if (!auth.isAuthenticated) return { name: 'login' }
+            }
+        },
+        {
             path: '/catalogo',
             name: 'catalog',
             component: () => import('../views/ServiceCatalog.vue'),
