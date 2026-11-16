@@ -80,8 +80,8 @@ const navigation = computed(() => {
   return [
     { title: '', items: [
       { label: 'Início', icon: Home, target: '/dashboard' },
-      { label: 'Agendar', icon: CalendarPlus, target: '/dashboard#agenda' },
-      { label: 'Meus agendamentos', icon: ClipboardList, target: '/dashboard#agenda' },
+      { label: 'Agendar', icon: CalendarPlus, target: '/agendar' },
+      { label: 'Meus agendamentos', icon: ClipboardList, target: '/meus-agendamentos' },
       { label: 'Histórico', icon: History, target: '' },
     ] },
     { title: 'Explorar', items: [

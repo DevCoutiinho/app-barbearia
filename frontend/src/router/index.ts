@@ -23,6 +23,16 @@ const router = createRouter({
             component: () => import('../views/ServicesManager.vue')
         },
         {
+            path: '/agendar',
+            name: 'booking',
+            component: () => import('../views/BookingWizard.vue')
+        },
+        {
+            path: '/meus-agendamentos',
+            name: 'my-schedulings',
+            component: () => import('../views/MySchedulings.vue')
+        },
+        {
             path: '/roles',
             name: 'roles',
             component: () => import('../views/Roles.vue')

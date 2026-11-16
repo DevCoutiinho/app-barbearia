@@ -109,8 +109,8 @@ const navigation = computed(() => {
   return [
     { title: '', items: [
       { label: 'Início', icon: Home, target: '#dashboard-content' },
-      { label: 'Agendar', icon: CalendarPlus, target: '#agenda' },
-      { label: 'Meus agendamentos', icon: ClipboardList, target: '#agenda' },
+      { label: 'Agendar', icon: CalendarPlus, target: '/agendar' },
+      { label: 'Meus agendamentos', icon: ClipboardList, target: '/meus-agendamentos' },
       { label: 'Histórico', icon: History, target: '' },
     ] },
     { title: 'Explorar', items: [
