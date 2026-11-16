@@ -8,6 +8,7 @@ import dev.barbershop.api.barberservice.repository.BarberServiceRepository;
 import dev.barbershop.api.client.entity.Client;
 import dev.barbershop.api.client.repository.ClientRepository;
 import dev.barbershop.api.common.exception.ResourceNotFoundException;
+import dev.barbershop.api.notification.service.NotificationService;
 import dev.barbershop.api.config.scheduling.SchedulingProperties;
 import dev.barbershop.api.scheduling.dto.BarberAppointmentHistoryDTO;
 import dev.barbershop.api.scheduling.dto.BarberSchedulingFilterDTO;
@@ -39,6 +40,7 @@ public class SchedulingService {
     private final BarberServiceRepository barberServiceRepository;
     private final SchedulingProperties properties;
     private final Clock clock;
+    private final NotificationService notificationService;
 
     @PreAuthorize("isAuthenticated()")
     public java.util.List<SchedulingResponseDTO> findMySchedulings(UUID userId) {
@@ -101,7 +103,8 @@ public class SchedulingService {
      * Cancelar apenas libera tempo na agenda, então não precisa do lock. Pode ser feito pelo cliente
      * dono do agendamento ou pelo barbeiro responsável.
      * Não permite cancelar agendamentos passados ou já finalizados/cancelados.
-     */
+     */    
+    
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public SchedulingResponseDTO cancel(UUID userId, UUID schedulingId) {
@@ -110,7 +113,17 @@ public class SchedulingService {
 
         assertUserHasAccess(scheduling, userId);
 
+        boolean canceledByBarber =
+                scheduling.getBarber().getUser().getId().equals(userId);
+
         scheduling.cancel(clock.instant());
+
+        if (canceledByBarber) {
+            notificationService.notifyAppointmentCanceled(
+                    scheduling.getClient().getUser(),
+                    scheduling.getService().getName()
+            );
+        }
 
         return toDTO(scheduling);
     }
