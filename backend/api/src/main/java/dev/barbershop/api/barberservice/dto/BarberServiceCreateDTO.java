@@ -18,7 +18,7 @@ public record BarberServiceCreateDTO(
         @DecimalMax(value = "9999.99", inclusive = true, message = "O preço não pode ultrapassar 9999.99")
         BigDecimal price,
 
-        @NotNull(message = "Você deve informar se aceita ou não os termos.")
+        @NotNull(message = "")
         Boolean active,
 
         @NotNull(message = "O campo quantidade é obrigatório.")

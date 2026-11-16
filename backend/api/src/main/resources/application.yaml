@@ -34,6 +34,10 @@ api:
       local-issuer: http://localhost:8080
       local-expiration: 900 # 15 minutos
       refresh-expiration: 604800 # 7 dias
+  scheduling:
+    zone-id: America/Sao_Paulo
+    slot-interval-minutes: 15 # passo entre os horários oferecidos ao cliente
+    max-days-ahead: 60 # janela máxima para consulta/agendamento
 
 
 server:

@@ -1,6 +1,6 @@
 package dev.barbershop.api.barber.entity;
 
-import dev.barbershop.api.availability.entity.Availability;
+import dev.barbershop.api.availability.entity.WorkingHour;
 import dev.barbershop.api.barberservice.entity.BarberService;
 import dev.barbershop.api.common.auditing.Creatable;
 import dev.barbershop.api.scheduling.entity.Scheduling;
@@ -25,7 +25,7 @@ import java.util.UUID;
 @ToString(exclude = {
         "services",
         "schedulings",
-        "availabilities",
+        "workingHours",
         "user"
 })
 @Table(name = "barbers")
@@ -53,7 +53,7 @@ public class Barber extends Creatable {
 
     @OneToMany(mappedBy = "barber")
     @Builder.Default
-    private List<Availability> availabilities = new ArrayList<>();
+    private List<WorkingHour> workingHours = new ArrayList<>();
 
     public void addUser(User user) {
         Objects.requireNonNull(user);

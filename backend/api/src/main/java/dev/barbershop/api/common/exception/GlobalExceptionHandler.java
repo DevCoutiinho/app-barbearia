@@ -7,6 +7,7 @@ import dev.barbershop.api.common.dto.StandardErrorDTO;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -139,6 +140,13 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public StandardErrorDTO handleNoResourceFound(NoResourceFoundException exception) {
         return StandardErrorDTO.notFound("Recurso não encontrado: " + exception.getResourcePath());
+    }
+
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public StandardErrorDTO handlePessimisticLockingFailure(PessimisticLockingFailureException exception) {
+        log.warn("Falha ao obter lock da agenda: {}", exception.getMessage());
+        return StandardErrorDTO.conflict("A agenda está sendo alterada por outra operação. Tente novamente.");
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
