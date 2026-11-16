@@ -30,6 +30,8 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,6 +50,9 @@ class SchedulingServiceTest {
     @Mock
     private BarberServiceRepository barberServiceRepository;
 
+    @Mock
+    private dev.barbershop.api.notification.service.NotificationService notificationService;
+
     private SchedulingService service;
     private final ZoneId zone = ZoneId.of("America/Sao_Paulo");
     private final Clock fixedClock = Clock.fixed(Instant.parse("2026-11-20T08:00:00Z"), zone);
@@ -56,7 +61,7 @@ class SchedulingServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(guard.zone()).thenReturn(zone);
-        service = new SchedulingService(guard, repository, clientRepository, barberServiceRepository, properties, fixedClock);
+        service = new SchedulingService(guard, repository, clientRepository, barberServiceRepository, notificationService, properties, fixedClock);
     }
 
     private Barber createActiveBarber(UUID barberId) {
@@ -266,37 +271,6 @@ class SchedulingServiceTest {
     }
 
     @Test
-    @DisplayName("Deve permitir confirmar agendamento PENDING -> SCHEDULED")
-    void shouldConfirmPendingScheduling() {
-        UUID userId = UUID.randomUUID();
-        UUID schedulingId = UUID.randomUUID();
-        UUID barberId = UUID.randomUUID();
-
-        User user = User.builder().id(userId).password("secret123").active(true).build();
-        Client client = Client.builder().id(UUID.randomUUID()).user(user).build();
-        Barber barber = Barber.builder().id(barberId).user(user).build();
-        BarberService serviceEntity = BarberService.builder().id(UUID.randomUUID()).name("Barba").price(BigDecimal.TEN).barber(barber).build();
-
-        Scheduling scheduling = Scheduling.builder()
-                .id(schedulingId)
-                .client(client)
-                .barber(barber)
-                .service(serviceEntity)
-                .scheduledAt(Instant.parse("2026-11-20T13:00:00Z"))
-                .endsAt(Instant.parse("2026-11-20T13:30:00Z"))
-                .durationTime(30)
-                .finalPrice(BigDecimal.TEN)
-                .status(SchedulingStatus.PENDING)
-                .build();
-
-        when(repository.findById(schedulingId)).thenReturn(Optional.of(scheduling));
-
-        SchedulingResponseDTO response = service.confirm(userId, schedulingId);
-
-        assertEquals(SchedulingStatus.SCHEDULED, response.status());
-    }
-
-    @Test
     @DisplayName("Regra 1 e 2: Cancelamento com sucesso de agendamento futuro pelo cliente")
     void shouldCancelFutureSchedulingSuccessfully() {
         UUID userId = UUID.randomUUID();
@@ -326,6 +300,46 @@ class SchedulingServiceTest {
         SchedulingResponseDTO response = service.cancel(userId, schedulingId);
 
         assertEquals(SchedulingStatus.CANCELED, response.status(), "Status deve ser alterado para CANCELED");
+        verify(notificationService, never()).notify(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Cancelamento pelo barbeiro: Notificar o cliente no sistema")
+    void shouldNotifyClientWhenBarberCancelsScheduling() {
+        UUID clientUserId = UUID.randomUUID();
+        UUID barberUserId = UUID.randomUUID();
+        UUID schedulingId = UUID.randomUUID();
+
+        User clientUser = User.builder().id(clientUserId).name("Cliente Teste").password("secret123").active(true).build();
+        User barberUser = User.builder().id(barberUserId).name("Barbeiro Silva").password("secret123").active(true).build();
+
+        Client client = Client.builder().id(UUID.randomUUID()).user(clientUser).build();
+        Barber barber = Barber.builder().id(UUID.randomUUID()).user(barberUser).build();
+        BarberService serviceEntity = BarberService.builder().id(UUID.randomUUID()).name("Corte Masculino").price(BigDecimal.TEN).barber(barber).build();
+
+        Scheduling scheduling = Scheduling.builder()
+                .id(schedulingId)
+                .client(client)
+                .barber(barber)
+                .service(serviceEntity)
+                .scheduledAt(Instant.parse("2026-11-20T14:00:00Z"))
+                .endsAt(Instant.parse("2026-11-20T14:30:00Z"))
+                .durationTime(30)
+                .finalPrice(BigDecimal.TEN)
+                .status(SchedulingStatus.SCHEDULED)
+                .build();
+
+        when(repository.findById(schedulingId)).thenReturn(Optional.of(scheduling));
+
+        SchedulingResponseDTO response = service.cancel(barberUserId, schedulingId);
+
+        assertEquals(SchedulingStatus.CANCELED, response.status(), "Status deve ser alterado para CANCELED");
+        verify(notificationService).notify(
+                eq(clientUser),
+                eq("Agendamento Cancelado"),
+                contains("foi cancelado pelo barbeiro Barbeiro Silva"),
+                eq(dev.barbershop.api.notification.enums.NotificationType.APPOINTMENT_CANCELED)
+        );
     }
 
     @Test

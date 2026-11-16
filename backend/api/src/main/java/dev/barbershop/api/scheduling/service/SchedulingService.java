@@ -9,6 +9,8 @@ import dev.barbershop.api.client.entity.Client;
 import dev.barbershop.api.client.repository.ClientRepository;
 import dev.barbershop.api.common.exception.ResourceNotFoundException;
 import dev.barbershop.api.config.scheduling.SchedulingProperties;
+import dev.barbershop.api.notification.enums.NotificationType;
+import dev.barbershop.api.notification.service.NotificationService;
 import dev.barbershop.api.scheduling.dto.BarberAppointmentHistoryDTO;
 import dev.barbershop.api.scheduling.dto.BarberSchedulingFilterDTO;
 import dev.barbershop.api.scheduling.dto.SchedulingCreateDTO;
@@ -16,7 +18,9 @@ import dev.barbershop.api.scheduling.dto.SchedulingResponseDTO;
 import dev.barbershop.api.scheduling.entity.Scheduling;
 import dev.barbershop.api.scheduling.repository.SchedulingRepository;
 import dev.barbershop.api.scheduling.specification.SchedulingSpecification;
+import dev.barbershop.api.user.entity.User;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -26,10 +30,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class SchedulingService {
 
@@ -37,6 +43,7 @@ public class SchedulingService {
     private final SchedulingRepository repository;
     private final ClientRepository clientRepository;
     private final BarberServiceRepository barberServiceRepository;
+    private final NotificationService notificationService;
     private final SchedulingProperties properties;
     private final Clock clock;
 
@@ -112,7 +119,36 @@ public class SchedulingService {
 
         scheduling.cancel(clock.instant());
 
+        // Se quem cancelou não foi o próprio cliente (ex: foi o barbeiro ou admin), notifica o cliente
+        if (!scheduling.getClient().getUser().getId().equals(userId)) {
+            notifyClientOfCancellation(scheduling);
+        }
+
         return toDTO(scheduling);
+    }
+
+    private void notifyClientOfCancellation(Scheduling scheduling) {
+        try {
+            User clientUser = scheduling.getClient().getUser();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm").withZone(guard.zone());
+            String dateFormatted = formatter.format(scheduling.getScheduledAt());
+            String serviceName = (scheduling.getService() != null) ? scheduling.getService().getName() : "Serviço";
+            String barberName = (scheduling.getBarber() != null && scheduling.getBarber().getUser() != null)
+                    ? scheduling.getBarber().getUser().getName()
+                    : "o barbeiro";
+
+            String title = "Agendamento Cancelado";
+            String message = String.format("Seu agendamento de %s para %s foi cancelado pelo barbeiro %s.",
+                    serviceName, dateFormatted, barberName);
+
+            if (message.length() > 255) {
+                message = message.substring(0, 252) + "...";
+            }
+
+            notificationService.notify(clientUser, title, message, NotificationType.APPOINTMENT_CANCELED);
+        } catch (Exception e) {
+            log.error("Erro ao gerar notificação de cancelamento para o agendamento {}", scheduling.getId(), e);
+        }
     }
 
     /**

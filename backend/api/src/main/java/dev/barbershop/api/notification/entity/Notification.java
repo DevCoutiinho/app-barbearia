@@ -40,7 +40,11 @@ public class Notification extends Creatable {
     @Column(nullable = false, length = 50)
     private NotificationType type;
 
-    @JoinColumn(nullable = false)
+    @Column(name = "read", nullable = false)
+    @Builder.Default
     private Boolean read = Boolean.FALSE;
 
+    public void markAsRead() {
+        this.read = true;
+    }
 }
