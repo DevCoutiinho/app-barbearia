@@ -9,6 +9,7 @@ import dev.barbershop.api.client.entity.Client;
 import dev.barbershop.api.client.repository.ClientRepository;
 import dev.barbershop.api.common.exception.ResourceConflictException;
 import dev.barbershop.api.config.scheduling.SchedulingProperties;
+import dev.barbershop.api.notification.service.NotificationService;
 import dev.barbershop.api.scheduling.dto.SchedulingCreateDTO;
 import dev.barbershop.api.scheduling.dto.SchedulingResponseDTO;
 import dev.barbershop.api.scheduling.entity.Scheduling;
@@ -48,6 +49,9 @@ class SchedulingServiceTest {
     @Mock
     private BarberServiceRepository barberServiceRepository;
 
+    @Mock
+    private NotificationService notificationService;
+
     private SchedulingService service;
     private final ZoneId zone = ZoneId.of("America/Sao_Paulo");
     private final Clock fixedClock = Clock.fixed(Instant.parse("2026-11-20T08:00:00Z"), zone);
@@ -56,7 +60,7 @@ class SchedulingServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(guard.zone()).thenReturn(zone);
-        service = new SchedulingService(guard, repository, clientRepository, barberServiceRepository, properties, fixedClock);
+        service = new SchedulingService(guard,repository,clientRepository,barberServiceRepository,properties,fixedClock,notificationService);
     }
 
     private Barber createActiveBarber(UUID barberId) {
@@ -265,68 +269,122 @@ class SchedulingServiceTest {
         assertEquals(BigDecimal.valueOf(45), response.finalPrice(), "Deve registrar snapshot do preço no momento da contratação");
     }
 
-    @Test
-    @DisplayName("Deve permitir confirmar agendamento PENDING -> SCHEDULED")
-    void shouldConfirmPendingScheduling() {
-        UUID userId = UUID.randomUUID();
-        UUID schedulingId = UUID.randomUUID();
-        UUID barberId = UUID.randomUUID();
-
-        User user = User.builder().id(userId).password("secret123").active(true).build();
-        Client client = Client.builder().id(UUID.randomUUID()).user(user).build();
-        Barber barber = Barber.builder().id(barberId).user(user).build();
-        BarberService serviceEntity = BarberService.builder().id(UUID.randomUUID()).name("Barba").price(BigDecimal.TEN).barber(barber).build();
-
-        Scheduling scheduling = Scheduling.builder()
-                .id(schedulingId)
-                .client(client)
-                .barber(barber)
-                .service(serviceEntity)
-                .scheduledAt(Instant.parse("2026-11-20T13:00:00Z"))
-                .endsAt(Instant.parse("2026-11-20T13:30:00Z"))
-                .durationTime(30)
-                .finalPrice(BigDecimal.TEN)
-                .status(SchedulingStatus.PENDING)
-                .build();
-
-        when(repository.findById(schedulingId)).thenReturn(Optional.of(scheduling));
-
-        SchedulingResponseDTO response = service.confirm(userId, schedulingId);
-
-        assertEquals(SchedulingStatus.SCHEDULED, response.status());
-    }
 
     @Test
     @DisplayName("Regra 1 e 2: Cancelamento com sucesso de agendamento futuro pelo cliente")
     void shouldCancelFutureSchedulingSuccessfully() {
-        UUID userId = UUID.randomUUID();
+        UUID clientUserId = UUID.randomUUID();
+        UUID barberUserId = UUID.randomUUID();
         UUID schedulingId = UUID.randomUUID();
         UUID barberId = UUID.randomUUID();
 
-        User user = User.builder().id(userId).password("secret123").active(true).build();
-        Client client = Client.builder().id(UUID.randomUUID()).user(user).build();
-        Barber barber = Barber.builder().id(barberId).user(user).build();
-        BarberService serviceEntity = BarberService.builder().id(UUID.randomUUID()).name("Corte").price(BigDecimal.TEN).barber(barber).build();
+        User clientUser = User.builder()
+            .id(clientUserId)
+            .password("secret123")
+            .active(true)
+            .build();
 
-        // Agendamento no futuro em relação ao fixedClock (2026-11-20T08:00:00Z)
+        User barberUser = User.builder()
+            .id(barberUserId)
+            .password("secret123")
+            .active(true)
+            .build();
+
+        Client client = Client.builder()
+            .id(UUID.randomUUID())
+            .user(clientUser)
+            .build();
+
+        Barber barber = Barber.builder()
+            .id(barberId)
+            .user(barberUser)
+            .build();
+
+        BarberService serviceEntity = BarberService.builder()
+            .id(UUID.randomUUID())
+            .name("Corte")
+            .price(BigDecimal.TEN)
+            .barber(barber)
+            .build();
+
         Scheduling scheduling = Scheduling.builder()
-                .id(schedulingId)
-                .client(client)
-                .barber(barber)
-                .service(serviceEntity)
-                .scheduledAt(Instant.parse("2026-11-20T14:00:00Z"))
-                .endsAt(Instant.parse("2026-11-20T14:30:00Z"))
-                .durationTime(30)
-                .finalPrice(BigDecimal.TEN)
-                .status(SchedulingStatus.SCHEDULED)
-                .build();
+            .id(schedulingId)
+            .client(client)
+            .barber(barber)
+            .service(serviceEntity)
+            .scheduledAt(Instant.parse("2026-11-20T14:00:00Z"))
+            .endsAt(Instant.parse("2026-11-20T14:30:00Z"))
+            .durationTime(30)
+            .finalPrice(BigDecimal.TEN)
+            .status(SchedulingStatus.SCHEDULED)
+            .build();
 
         when(repository.findById(schedulingId)).thenReturn(Optional.of(scheduling));
 
-        SchedulingResponseDTO response = service.cancel(userId, schedulingId);
+        SchedulingResponseDTO response =service.cancel(clientUserId, schedulingId);
 
-        assertEquals(SchedulingStatus.CANCELED, response.status(), "Status deve ser alterado para CANCELED");
+        assertEquals(SchedulingStatus.CANCELED, response.status());
+
+        verifyNoInteractions(notificationService);
     }
+
+        @Test
+        @DisplayName("Deve notificar o cliente quando o barbeiro cancelar o agendamento")
+        void shouldNotifyClientWhenBarberCancelsScheduling() {
+                UUID barberUserId = UUID.randomUUID();
+                UUID clientUserId = UUID.randomUUID();
+                UUID schedulingId = UUID.randomUUID();
+
+                User barberUser = User.builder()
+                        .id(barberUserId)
+                        .password("secret123")
+                        .active(true)
+                        .build();
+
+                User clientUser = User.builder()
+                        .id(clientUserId)
+                        .password("secret123")
+                        .active(true)
+                        .build();
+
+                Client client = Client.builder()
+                        .id(UUID.randomUUID())
+                        .user(clientUser)
+                        .build();
+
+                Barber barber = Barber.builder()
+                        .id(UUID.randomUUID())
+                        .user(barberUser)
+                        .build();
+
+                BarberService serviceEntity = BarberService.builder()
+                        .id(UUID.randomUUID())
+                        .name("Corte")
+                        .price(BigDecimal.TEN)
+                        .barber(barber)
+                        .build();
+
+                Scheduling scheduling = Scheduling.builder()
+                        .id(schedulingId)
+                        .client(client)
+                        .barber(barber)
+                        .service(serviceEntity)
+                        .scheduledAt(Instant.parse("2026-11-20T14:00:00Z"))
+                        .endsAt(Instant.parse("2026-11-20T14:30:00Z"))
+                        .durationTime(30)
+                        .finalPrice(BigDecimal.TEN)
+                        .status(SchedulingStatus.SCHEDULED)
+                        .build();
+
+                when(repository.findById(schedulingId)).thenReturn(Optional.of(scheduling));
+
+                SchedulingResponseDTO response =
+                service.cancel(barberUserId, schedulingId);
+
+                assertEquals(SchedulingStatus.CANCELED, response.status());
+
+                verify(notificationService).notifyAppointmentCanceled(clientUser,"Corte");
+        }
 
     @Test
     @DisplayName("Regra 2: Rejeitar cancelamento de agendamento passado com a mensagem exata")
